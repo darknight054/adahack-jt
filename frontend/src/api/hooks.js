@@ -46,7 +46,7 @@ export const useLogTree = () => {
   })
 }
 
-export const useLeaderboard = (q) => useQuery({
+export const useLeaderboard = (q = '') => useQuery({
   queryKey: ['leaderboard', q],
   queryFn: get(`/api/leaderboard?q=${encodeURIComponent(q)}`),
   placeholderData: keepPreviousData,
