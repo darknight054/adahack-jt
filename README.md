@@ -5,7 +5,7 @@ AdaHack 2026, Jane Street challenge: encourage staff who drive to the London off
 
 Everyone at Jane Street London gets a weekly allowance of credits. Walking or cycling in, or planting a tree, earns more. Parking a car costs credits. Credits convert to AI coding tokens or cash. Anyone who runs short buys credits from colleagues on an internal exchange, below Jane Street's own price. Teams compete weekly, and every member of the winning team gets a bonus.
 
-Most staff drive in, so Jane Street also buys car-free commutes directly. Drivers name the bonus they'd need to walk or cycle in on the next working day, Jane Street funds the cheapest asks that fit a daily budget, and each bonus is paid only once that commute is verified. The Exchange page shows the asks, where the budget runs out, and what each car journey replaced has cost.
+Most staff drive in, so Jane Street also buys car-free commutes directly. Drivers name the bonus they'd need to walk or cycle in on the next working day, Jane Street funds the asks with the fewest credits per mile of driving replaced, within a daily budget, and each bonus is paid only once that commute is verified. The Exchange page shows the asks, where the budget runs out, and what each car journey replaced has cost.
 
 Pages:
 - **Home:** how it works, with a map of every neighbourhood's route into the office and how many colleagues live there.
@@ -45,7 +45,7 @@ The database ships with the deploy. Each function instance works on its own copy
 
 - FastAPI with SQLite. The database file is committed so it deploys with the code.
 - Routes are cached from OSRM and places are imported from OpenStreetMap, so the stops near a route come from a database query.
-- Car-free offers (`app/switch.py`) are a reverse auction. Each day's auction runs at 20:00 the evening before. It funds the cheapest asks within the budget, and each funded driver is paid their own ask. The bonus is paid when the next commute passes the normal trip checks.
+- Car-free offers (`app/switch.py`) are a reverse auction. Each day's auction runs at 20:00 the evening before. It funds asks in order of fewest credits per mile of driving replaced (so a longer drive can ask for more), until the budget runs out, and each funded driver is paid their own ask. The bonus is paid when the next commute passes the normal trip checks.
 - Every credit movement is a ledger row. Balances, team standings, prices and weekly stats are all computed from the data.
 - Commute tracking is a foreground GPS track plus a rotating code on the office door. The server credits the routed distance, never what the phone reports (see the tracking notes in `docs/`).
 

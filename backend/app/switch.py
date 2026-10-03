@@ -1,7 +1,8 @@
 """Car-free offers: a reverse auction for commutes that would otherwise be by car.
 
 A driver asks for a bonus to walk or cycle in on a given day. At SWITCH_RUN_HOUR the evening before, Jane Street
-funds the cheapest asks that fit SWITCH_BUDGET (each is paid what it asked for). A funded offer pays out on that
+funds asks in order of credits per mile of driving replaced (so someone who lives further away can ask for more and
+still win), until the next one doesn't fit SWITCH_BUDGET. Each funded driver is paid what they asked for. A funded offer pays out on that
 person's next verified commute, and expires unpaid if they don't make one by the end of the day.
 """
 import sqlite3
@@ -34,12 +35,22 @@ def day_label(d: str) -> str:
     return _day(d).strftime("%A %-d %b")
 
 
+def _offers(conn: sqlite3.Connection, day: str, status: str | None = None) -> list:
+    """`day`'s offers in merit order: fewest credits per mile of driving replaced first, then earliest."""
+    rows = conn.execute(
+        "SELECT o.*, a.car_distance_km AS car_km, a.name AS area FROM switch_offers o "
+        "JOIN users u ON u.id = o.user_id JOIN areas a ON a.id = u.area_id "
+        "WHERE o.day = ? AND (? IS NULL OR o.status = ?)", (day, status, status)).fetchall()
+    return sorted(rows, key=lambda o: (o["ask"] / o["car_km"], o["created_at"]))
+
+
 def run(conn: sqlite3.Connection, day: str, at: datetime) -> None:
-    """Fund the cheapest open asks for `day` that fit the budget; the rest are waitlisted. Call inside write()."""
-    left = config.SWITCH_BUDGET
-    for o in conn.execute("SELECT id, ask FROM switch_offers WHERE day = ? AND status = 'open' "
-                          "ORDER BY ask, created_at", (day,)).fetchall():
-        funded = o["ask"] <= left
+    """Fund open asks for `day` in merit order until one doesn't fit the budget; the rest are waitlisted.
+    Call inside write()."""
+    left, full = config.SWITCH_BUDGET, False
+    for o in _offers(conn, day, "open"):
+        funded = not full and o["ask"] <= left
+        full = not funded
         left -= o["ask"] if funded else 0
         conn.execute("UPDATE switch_offers SET status = ?, decided_at = ? WHERE id = ?",
                      ("funded" if funded else "waitlisted", iso(at), o["id"]))
@@ -106,15 +117,24 @@ def book(conn: sqlite3.Connection, user_id: int, at: datetime) -> dict:
         with write(conn):
             tidy(conn, at)
     day = open_day(at)
-    rows = conn.execute("SELECT * FROM switch_offers WHERE day = ? ORDER BY ask, created_at", (day,)).fetchall()
-    left, offers = config.SWITCH_BUDGET, []
+    rows = _offers(conn, day)
+    left, full, offers = config.SWITCH_BUDGET, False, []
     for o in rows:
         # While the auction is open, show who the budget would fund if it ran now.
-        fits = o["ask"] <= left if o["status"] == "open" else o["status"] in ("funded", "paid")
+        fits = (not full and o["ask"] <= left) if o["status"] == "open" else o["status"] in ("funded", "paid")
+        full = full or not fits
         left -= o["ask"] if fits else 0
         offers.append({"id": o["id"], "person": market.person(conn, o["user_id"]), "ask": o["ask"],
+                       "area": o["area"], "car_mi": round(o["car_km"] / config.KM_PER_MILE, 1),
+                       "per_mile": round(o["ask"] / (o["car_km"] / config.KM_PER_MILE), 1),
                        "status": o["status"], "fits": fits, "mine": o["user_id"] == user_id})
 
+    # The most this user could ask and still be funded, if no other offers came in before the auction.
+    my_km = conn.execute("SELECT a.car_distance_km FROM users u JOIN areas a ON a.id = u.area_id WHERE u.id = ?",
+                         (user_id,)).fetchone()[0]
+    others = [(o["ask"] / o["car_km"], o["ask"]) for o in rows if o["status"] == "open" and o["user_id"] != user_id]
+    fund_up_to = next((a for a in range(config.SWITCH_ASK_MAX, config.SWITCH_ASK_MIN - 1, -1)
+                       if sum(x for k, x in others if k <= a / my_km) + a <= config.SWITCH_BUDGET), None)
     week = economy.week_start(at).date().isoformat()
     mine = conn.execute("SELECT * FROM switch_offers WHERE user_id = ? AND (day >= ? OR (status = 'paid' AND day >= ?)) "
                         "ORDER BY day DESC LIMIT 1",
@@ -128,7 +148,7 @@ def book(conn: sqlite3.Connection, user_id: int, at: datetime) -> dict:
         "day": day, "day_label": day_label(day), "runs_at": iso(runs_at(day)),
         "decided": any(o["status"] != "open" for o in offers),
         "budget": config.SWITCH_BUDGET, "ask_min": config.SWITCH_ASK_MIN, "ask_max": config.SWITCH_ASK_MAX,
-        "eligible": _eligible(conn, user_id),
+        "eligible": _eligible(conn, user_id), "fund_up_to": fund_up_to, "my_car_mi": round(my_km / config.KM_PER_MILE, 1),
         "offers": offers,
         "mine": mine and {"id": mine["id"], "ask": mine["ask"], "status": mine["status"],
                           "day_label": day_label(mine["day"])},

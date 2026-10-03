@@ -373,18 +373,23 @@ function YourCredits({ wallet, config, route }) {
     ['Converted this week', wallet.week.converted],
   ]
   return (
-    <section className="panel" aria-labelledby="yours-title">
+    <section className="panel zone" aria-labelledby="yours-title">
       <div className="panel-head"><h2 id="yours-title">Your credits</h2></div>
-      <dl className="your-credits">
-        {stats.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{fmtInt(v)}</dd></div>)}
-      </dl>
-      {route && (
-        <p className="explain">
-          Your walk {route.name.replace(/^Via /, 'via ')} earns <strong>{fmtInt(route.credits)} credits</strong>. That converts to{' '}
-          {fmtInt(route.credits * tokens)} coding tokens or {fmtGbp(route.credits * pence)}, or you can sell it here.
-        </p>
-      )}
-      <p className="muted small">Only credits you earn can be sold. Cash payouts and trade payments are simulated in this demo.</p>
+      <div className="yours">
+        <dl className="your-credits wide">
+          {stats.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{fmtInt(v)}</dd></div>)}
+        </dl>
+        <div>
+          {route && (
+            <p className="explain">
+              Your walk {route.name.replace(/^Via /, 'via ')} earns <strong>{fmtInt(route.credits)} credits</strong>. That
+              converts to {fmtInt(route.credits * tokens)} coding tokens or {fmtGbp(route.credits * pence)}, or you can
+              sell it here.
+            </p>
+          )}
+          <p className="muted small">Only credits you earn can be sold. Cash payouts and trade payments are simulated in this demo.</p>
+        </div>
+      </div>
     </section>
   )
 }
@@ -402,23 +407,29 @@ function Market({ config, market, listings, wallet, route, offers }) {
   }
   return (
     <>
-      <Ticker market={market} />
+      <YourCredits wallet={wallet} config={config} route={route} />
       <CarFreeOffers book={offers} config={config} />
-      <div className="ex-grid">
-        <OrderBook listings={listings} market={market} selected={listing.id} onSelect={pick} />
-        <div className="ex-side">
-          <YourCredits wallet={wallet} config={config} route={route} />
-          <Ticket tab={tab} setTab={setTab} listing={listing} market={market} wallet={wallet} config={config} />
-          <section className="panel" aria-labelledby="chart-title">
-            <div className="panel-head"><h2 id="chart-title">Price this week</h2></div>
-            <PriceChart market={market} />
-          </section>
+      <section className="panel zone market" aria-labelledby="market-title">
+        <div className="panel-head">
+          <h2 id="market-title">Buy and sell credits</h2>
+          <span className="muted">Colleagues' listings, Jane Street's price, or convert</span>
         </div>
-      </div>
-      <div className="ex-grid even">
-        <MyListings />
-        <MyTrades />
-      </div>
+        <Ticker market={market} />
+        <div className="ex-grid">
+          <OrderBook listings={listings} market={market} selected={listing.id} onSelect={pick} />
+          <div className="ex-side">
+            <Ticket tab={tab} setTab={setTab} listing={listing} market={market} wallet={wallet} config={config} />
+            <section className="panel" aria-labelledby="chart-title">
+              <div className="panel-head"><h2 id="chart-title">Price this week</h2></div>
+              <PriceChart market={market} />
+            </section>
+          </div>
+        </div>
+        <div className="ex-grid even">
+          <MyListings />
+          <MyTrades />
+        </div>
+      </section>
     </>
   )
 }
