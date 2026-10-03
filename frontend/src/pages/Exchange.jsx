@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import {
   useBuy, useCancelListing, useConfig, useConvert, useCreateListing, useListings, useMarket, useMyListings,
-  useMyTrades, useRoutes, useWallet,
+  useMyTrades, useRoutes, useSwitch, useWallet,
 } from '../api/hooks'
 import Avatar from '../components/Avatar'
+import CarFreeOffers from '../components/CarFreeOffers'
 import Query from '../components/Query'
 import { fmtAgo, fmtCompact, fmtGbp, fmtInt, fmtOne, fmtPence, fmtShortDay } from '../lib/format'
 import './Exchange.css'
@@ -388,7 +389,7 @@ function YourCredits({ wallet, config, route }) {
   )
 }
 
-function Market({ config, market, listings, wallet, route }) {
+function Market({ config, market, listings, wallet, route, offers }) {
   const [tab, setTab] = useState('buy')
   const [selected, setSelected] = useState(listings.find((x) => !x.mine)?.id ?? HOUSE)
   const l = listings.find((x) => x.id === selected)
@@ -402,6 +403,7 @@ function Market({ config, market, listings, wallet, route }) {
   return (
     <>
       <Ticker market={market} />
+      <CarFreeOffers book={offers} config={config} />
       <div className="ex-grid">
         <OrderBook listings={listings} market={market} selected={listing.id} onSelect={pick} />
         <div className="ex-side">
@@ -425,6 +427,7 @@ export default function Exchange() {
   const config = useConfig()
   const market = useMarket()
   const listings = useListings()
+  const offers = useSwitch()
   const wallet = useWallet()
   const routes = useRoutes()
   const walk = routes.data?.routes.find((r) => r.mode === 'walk')
@@ -434,8 +437,8 @@ export default function Exchange() {
         <h1>Credit exchange</h1>
         <span className="sign-meta">Buy credits from colleagues, sell what you earned, or convert</span>
       </header>
-      <Query q={[config, market, listings, wallet]}>
-        {(cfg, m, ls, w) => <Market config={cfg} market={m} listings={ls} wallet={w} route={walk} />}
+      <Query q={[config, market, listings, wallet, offers]}>
+        {(cfg, m, ls, w, o) => <Market config={cfg} market={m} listings={ls} wallet={w} route={walk} offers={o} />}
       </Query>
     </main>
   )

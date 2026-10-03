@@ -7,7 +7,7 @@ import sqlite3
 import struct
 from datetime import UTC, datetime, timedelta
 
-from . import config, economy, routing
+from . import config, economy, routing, switch
 from .db import setting, write
 from .economy import iso
 from .errors import Rejected
@@ -175,7 +175,7 @@ def finish(conn: sqlite3.Connection, user_id: int, trip_id: int, office_code: st
     else:
         status, reasons, routed = _check(conn, trip, pts, at)
 
-    credits = 0
+    credits = bonus = 0
     distance_km = routed["distance_km"] if routed else None
     car = routing.route("car", {"lat": pts[0]["lat"], "lon": pts[0]["lon"]}, finish_point()) if routed else None
     with write(conn):
@@ -184,10 +184,11 @@ def finish(conn: sqlite3.Connection, user_id: int, trip_id: int, office_code: st
             miles = distance_km / config.KM_PER_MILE
             economy.add(conn, user_id, trip["mode"], credits,
                         f"{'Walked' if trip['mode'] == 'walk' else 'Cycled'} in, {miles:.1f} mi", at, f"trip:{trip_id}")
+            bonus = switch.settle(conn, user_id, trip_id, at)
         conn.execute(
             "UPDATE trips SET status = ?, finished_at = ?, distance_km = ?, car_distance_km = ?, credits = ?, "
             "reasons = ? WHERE id = ?",
             (status, iso(at), distance_km, car["distance_km"] if car else None, credits, json.dumps(reasons), trip_id),
         )
-    return {"status": status, "credits": credits,
+    return {"status": status, "credits": credits, "switch_bonus": bonus,
             "credited_mi": round(distance_km / config.KM_PER_MILE, 2) if distance_km else 0, "reasons": reasons}

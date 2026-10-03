@@ -78,3 +78,17 @@
 .book-row.mine:hover { background: none; }
 .book-row.mine::before { background: color-mix(in srgb, var(--cycle) 14%, transparent); }
 .tag.mine { background: var(--cycle); }
+
+/* Car-free offers: asks cheapest first, shaded while they fit the budget, with a line where it runs out */
+.car-free-side { display: grid; gap: 16px; }
+.book-row.offer { grid-template-columns: 7ch 1fr; cursor: default; }
+.book-row.offer:hover { background: none; }
+.book-row.offer.fits::before { width: 100%; }
+.book-row.offer.mine { box-shadow: inset 4px 0 0 var(--cycle); }
+.book-row.offer.mine .seller > span:not(.tag) { font-weight: 800; }
+.budget-line {
+  margin: 4px 0; padding: 4px 10px; border-top: 2px dashed var(--ink);
+  font-size: 0.85rem; font-weight: 700; color: var(--ink-soft);
+}
+.tag.funded, .tag.paid { background: var(--walk); }
+.tag.waitlisted, .tag.expired { background: var(--ink-soft); }

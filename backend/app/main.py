@@ -9,7 +9,7 @@ from fastapi import Depends, FastAPI, File, Form, Header, Request, Response, Upl
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from . import auth, config, demo, economy, market, places, trips
+from . import auth, config, demo, economy, market, places, switch, trips
 from .db import get_conn, write
 from .economy import iso, now
 from .errors import Rejected
@@ -270,6 +270,32 @@ def demo_replay(body: Replay, user: User, conn: Conn):
     if not config.DEMO_REPLAY:
         raise Rejected(404, "Demo replay is turned off on this server.")
     return demo.replay(conn, user["id"], body.route_id, now())
+
+
+@app.get("/api/switch")
+def switch_book(user: User, conn: Conn):
+    return switch.book(conn, user["id"], now())
+
+
+class Offer(BaseModel):
+    ask: int
+
+
+@app.post("/api/switch/offers", status_code=204)
+def switch_offer(body: Offer, user: User, conn: Conn):
+    switch.offer(conn, user["id"], body.ask, now())
+
+
+@app.delete("/api/switch/offers/{offer_id}", status_code=204)
+def switch_withdraw(offer_id: int, user: User, conn: Conn):
+    switch.withdraw(conn, user["id"], offer_id)
+
+
+@app.post("/api/demo/switch/run", status_code=204)
+def demo_switch_run(user: User, conn: Conn):
+    if not config.DEMO_REPLAY:
+        raise Rejected(404, "Demo controls are turned off on this server.")
+    switch.run_now(conn, now())
 
 
 @app.get("/api/office/code")

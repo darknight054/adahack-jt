@@ -73,10 +73,21 @@ export const useCreateListing = () => useWalletMutation((listing) => api.post('/
 export const useCancelListing = () => useWalletMutation((id) => api.delete(`/api/market/listings/${id}`))
 export const useConvert = () => useWalletMutation((req) => api.post('/api/wallet/convert', req))
 
+export const useSwitch = () => useQuery({ queryKey: ['switch'], queryFn: get('/api/switch') })
+
+function useSwitchMutation(mutationFn) {
+  const client = useQueryClient()
+  return useMutation({ mutationFn, onSettled: () => client.invalidateQueries({ queryKey: ['switch'] }) })
+}
+
+export const useMakeOffer = () => useSwitchMutation((ask) => api.post('/api/switch/offers', { ask }))
+export const useWithdrawOffer = () => useSwitchMutation((id) => api.delete(`/api/switch/offers/${id}`))
+export const useRunAuction = () => useSwitchMutation(() => api.post('/api/demo/switch/run'))
+
 /** Refetches everything a finished commute changes: trips, wallet, office stats, standings and team views. */
 export function useRefreshAfterTrip() {
   const client = useQueryClient()
-  return () => Promise.all(['trips', 'wallet', 'stats', 'leaderboard', 'activity', 'team'].map(
+  return () => Promise.all(['trips', 'wallet', 'stats', 'leaderboard', 'activity', 'team', 'switch'].map(
     (key) => client.invalidateQueries({ queryKey: [key] }),
   ))
 }

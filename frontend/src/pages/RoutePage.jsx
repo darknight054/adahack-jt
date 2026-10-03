@@ -331,7 +331,7 @@ function RouteView({ config, data }) {
           </Query>
         </div>
         <aside className="route-side">
-          <CommuteTracker config={config} route={route} onReplay={setReplay} />
+          <CommuteTracker config={config} route={route} routes={data.routes} onPickRoute={pickRoute} onReplay={setReplay} />
           <TripSummary route={route} config={config} />
           <Query q={wallet}>{(w) => <Wallet wallet={w} />}</Query>
           <Query q={trips}>{(t) => <Trips data={t} config={config} />}</Query>

@@ -7,9 +7,9 @@
 
 ## Database
 - SQLite at `data/street_miles.db`, committed to git on purpose (Vercel free plan, no hosted DB).
-- `uv run python -m app.seed` rebuilds it from scratch:
-  - it takes a few minutes and calls OSRM and Overpass
-  - Overpass often returns 504; the seed retries
+- `uv run python -m app.seed` rebuilds people and history in seconds, copying `areas`, `routes`, `places` and `route_stops` from the existing DB:
+  - `--refetch` rebuilds those from OSRM and Overpass instead; it takes a few minutes, and Overpass often returns 504 (the seed retries)
+  - the seed never uses `rng` while building map data, so reusing it keeps the same people (Priya Shah walks; Petra Shah always drives)
   - its history is relative to when it was run, so re-seed if "this week" looks empty
 - There are no migrations. Change `app/schema.sql` and re-seed.
 - On Vercel (`VERCEL` env set), `db.py` copies the DB to `/tmp`. Writes are per instance and vanish when the instance is recycled. That's fine for a demo, but not for real use.
@@ -22,6 +22,7 @@
   - allowance and team bonus rows use `ref` plus the UNIQUE `(user_id, kind, ref)` constraint, so they can't be paid twice
   - the weekly allowance and last week's team bonus are granted lazily in `economy.ensure_current`, which runs on every authenticated request
 - **Trips:** compute credits from the OSRM routed distance, never a client distance. Trips under 0.5 mi earn 0; earnings cap at 300 a day; parking that day voids the credit.
+- **Car-free offers** (`app/switch.py`): only `SWITCH_USUAL_MODES` users can make an offer, with one per day. `tidy()` runs due auctions and expires funded offers lazily on read. Payment goes through `settle()` inside `trips.finish`, never directly. `POST /api/demo/switch/run` runs the next auction early, behind `DEMO_REPLAY`.
 - **Demo replay** (`app/demo.py`, on unless `DEMO_REPLAY=0`) drives the real `trips` functions with a simulated `at`. Keep it that way: never add a shortcut that writes credits directly.
 - **Selling:** only earned credits are sellable (`economy.sellable`). Listings need floor ≤ teammate price ≤ global price < house price.
 - **Prices** are stored in tenths of a penny (`*_dp`). The API speaks pence.
