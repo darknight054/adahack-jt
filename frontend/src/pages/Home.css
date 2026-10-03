@@ -1,0 +1,45 @@
+.home { gap: 56px; }
+
+.hero { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 40px; align-items: center; padding-top: 16px; }
+.hero-copy { display: grid; gap: 24px; max-width: 34rem; }
+.hero .lede { font-size: 1.15rem; line-height: 1.6; color: var(--ink-soft); }
+.hero .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.hero-map { display: grid; gap: 10px; }
+.hero-map figcaption { font-size: 0.9rem; }
+.key { display: inline-block; width: 22px; height: 6px; border-radius: 3px; vertical-align: 3px; margin: 0 4px 0 8px; }
+.key:first-child { margin-left: 0; }
+.key.walk { background: var(--walk); }
+.key.cycle { background: var(--cycle); }
+
+.this-week dl { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; margin: 16px 0 0; }
+.this-week dt { font-family: var(--sans); font-size: 0.85rem; color: #c9cfdc; }
+.this-week dd { margin: 4px 0 0; font-size: clamp(1.4rem, 2.6vw, 2.1rem); font-weight: 800; }
+
+.week { display: grid; gap: 28px; }
+.week-intro { display: grid; gap: 8px; max-width: 40rem; }
+.week-line { position: relative; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 24px; }
+.week-line::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 37px; height: 8px; border-radius: 4px; background: var(--walk);
+}
+.week-line li { position: relative; display: grid; gap: 8px; align-content: start; }
+.week-line .when { font-size: 0.85rem; font-weight: 650; color: var(--ink-soft); }
+.week-line .stn { width: 26px; height: 26px; border-radius: 50%; background: var(--plate); border: 6px solid var(--ink); margin-bottom: 4px; }
+.week-line .value { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.01em; }
+.week-line p { font-size: 0.95rem; }
+
+@media (max-width: 960px) {
+  .hero { grid-template-columns: 1fr; }
+  .this-week dl { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .week-line { grid-template-columns: 1fr; gap: 20px; padding-left: 44px; }
+  .week-line::before { left: 13px; right: auto; top: 0; bottom: 0; width: 8px; height: auto; transform: translateX(-50%); }
+  .week-line .stn { position: absolute; left: -44px; top: 2px; }
+}
+@media (max-width: 520px) {
+  .this-week dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.winners-band { display: flex; align-items: center; gap: 12px 28px; flex-wrap: wrap; padding: 18px 0; border-top: 2px solid var(--ink); border-bottom: 2px solid var(--ink); }
+.winners-band h2 { font-size: 1.1rem; }
+.winners-band ul { display: flex; gap: 12px 28px; flex-wrap: wrap; }
+.winners-band li { display: flex; align-items: baseline; gap: 12px; padding-left: 14px; box-shadow: inset 6px 0 0 var(--team); }
+.winners-band .team-name { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.01em; }

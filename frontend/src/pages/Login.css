@@ -1,0 +1,2 @@
+.login { min-height: 100vh; display: grid; place-items: center; padding: 24px var(--gutter); }
+.login-card { width: min(420px, 100%); display: grid; gap: 18px; }
