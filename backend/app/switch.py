@@ -133,8 +133,10 @@ def book(conn: sqlite3.Connection, user_id: int, at: datetime) -> dict:
     my_km = conn.execute("SELECT a.car_distance_km FROM users u JOIN areas a ON a.id = u.area_id WHERE u.id = ?",
                          (user_id,)).fetchone()[0]
     others = [(o["ask"] / o["car_km"], o["ask"]) for o in rows if o["status"] == "open" and o["user_id"] != user_id]
-    fund_up_to = next((a for a in range(config.SWITCH_ASK_MAX, config.SWITCH_ASK_MIN - 1, -1)
-                       if sum(x for k, x in others if k <= a / my_km) + a <= config.SWITCH_BUDGET), None)
+    decided = any(o["status"] != "open" for o in rows)
+    fund_up_to = None if decided else next(
+        (a for a in range(config.SWITCH_ASK_MAX, config.SWITCH_ASK_MIN - 1, -1)
+         if sum(x for k, x in others if k <= a / my_km) + a <= config.SWITCH_BUDGET), None)
     week = economy.week_start(at).date().isoformat()
     mine = conn.execute("SELECT * FROM switch_offers WHERE user_id = ? AND (day >= ? OR (status = 'paid' AND day >= ?)) "
                         "ORDER BY day DESC LIMIT 1",
@@ -146,12 +148,14 @@ def book(conn: sqlite3.Connection, user_id: int, at: datetime) -> dict:
     price = market.summary(conn, user_id, at)["last_price_pence"] or market.pence(market.prices(conn)[1])
     return {
         "day": day, "day_label": day_label(day), "runs_at": iso(runs_at(day)),
-        "decided": any(o["status"] != "open" for o in offers),
+        "decided": decided,
         "budget": config.SWITCH_BUDGET, "ask_min": config.SWITCH_ASK_MIN, "ask_max": config.SWITCH_ASK_MAX,
         "eligible": _eligible(conn, user_id), "fund_up_to": fund_up_to, "my_car_mi": round(my_km / config.KM_PER_MILE, 1),
         "offers": offers,
         "mine": mine and {"id": mine["id"], "ask": mine["ask"], "status": mine["status"],
-                          "day_label": day_label(mine["day"])},
+                          "day_label": day_label(mine["day"]),
+                          "trip_credits": mine["trip_id"] and conn.execute(
+                              "SELECT credits FROM trips WHERE id = ?", (mine["trip_id"],)).fetchone()[0]},
         "week": {"switches": paid["n"], "credits": paid["credits"], "price_pence": price,
                  "co2_kg": round(paid["car_km"] * config.CAR_KG_CO2E_PER_KM, 1)},
     }

@@ -182,7 +182,8 @@ def get_stops(route_id: int, _user: User, conn: Conn):
 def get_trips(user: User, conn: Conn):
     start = iso(economy.week_start(now()))
     rows = conn.execute(
-        "SELECT t.*, r.name AS route_name FROM trips t LEFT JOIN routes r ON r.id = t.route_id "
+        "SELECT t.*, r.name AS route_name, o.ask AS bonus FROM trips t LEFT JOIN routes r ON r.id = t.route_id "
+        "LEFT JOIN switch_offers o ON o.trip_id = t.id AND o.status = 'paid' "
         "WHERE t.user_id = ? AND t.status != 'active' ORDER BY t.started_at DESC LIMIT 12", (user["id"],)).fetchall()
     week = conn.execute(
         "SELECT COUNT(*) AS n, SUM(distance_km) AS km, SUM(car_distance_km) AS car_km FROM trips "
@@ -204,6 +205,7 @@ def get_trips(user: User, conn: Conn):
             "route_name": t["route_name"] or (config.MODES.get(t["mode"]) or config.FLAT_TRIPS[t["mode"]])["label"],
             "distance_mi": round(t["distance_km"] / config.KM_PER_MILE, 2) if t["distance_km"] else None,
             "credits": t["credits"],
+            "bonus": t["bonus"] or 0,  # a car-free offer paid on this commute
             "co2_kg_avoided": round(t["car_distance_km"] * config.CAR_KG_CO2E_PER_KM, 2) if active(t) else 0,
             "fuel_gbp_saved": round(t["car_distance_km"] / config.KM_PER_MILE * config.FUEL_GBP_PER_MILE, 2)
             if active(t) else 0,

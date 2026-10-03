@@ -77,13 +77,20 @@ function OfferForm({ book, mine }) {
             onChange={(e) => setAsk(Number(e.target.value))} required />
           <span>credits</span>
         </div>
-        {book.fund_up_to && (
-          <p className="hint">
-            Your drive is {fmtOne(book.my_car_mi)} miles. Ask for {fmtInt(book.fund_up_to)} or less to be funded, if no one
-            else offers before the auction.
-          </p>
-        )}
       </div>
+      {book.fund_up_to && (
+        <div className="explain cf-max">
+          <p>
+            You don't need to be the cheapest: every offer above the dashed line is funded. With your{' '}
+            {fmtOne(book.my_car_mi)}-mile drive, you can ask for up to <strong>{fmtInt(book.fund_up_to)} credits</strong>.
+          </p>
+          {ask !== book.fund_up_to && (
+            <button type="button" className="link-btn" onClick={() => setAsk(book.fund_up_to)}>
+              Ask for {fmtInt(book.fund_up_to)}
+            </button>
+          )}
+        </div>
+      )}
       {make.error && <p className="note error">{make.error.message}</p>}
       <div className="tracker-actions">
         <button className="btn primary" disabled={make.isPending}>{mine ? 'Change my ask' : 'Make offer'}</button>
@@ -98,6 +105,9 @@ function MyOffer({ book, config }) {
   const mine = book.mine
   if (!book.eligible) {
     return <p className="muted">Offers are for colleagues who usually drive in. You can follow the auction here.</p>
+  }
+  if (!mine && book.decided) {
+    return <p className="muted">The auction for {book.day_label} has already run. Check back for the next one.</p>
   }
   if (!mine || mine.status === 'open') {
     const fits = book.offers.find((o) => o.mine)?.fits
@@ -125,12 +135,18 @@ function MyOffer({ book, config }) {
   return {
     funded: (
       <p className="note">
-        Funded. Walk or cycle in on {mine.day_label} and you're paid {fmtInt(mine.ask)} credits once the commute is
-        verified. <Link to="/route">Go to your route</Link>
+        Funded. Walk or cycle in on {mine.day_label}: once the commute is verified you get its usual credits plus your{' '}
+        {fmtInt(mine.ask)}-credit bonus. <Link to="/route">Go to your route</Link>
       </p>
     ),
     waitlisted: <p className="note error">Not funded this time. The {fmtInt(book.budget)} credits went to cheaper asks.</p>,
-    paid: <p className="note">Paid: +{fmtInt(mine.ask)} credits for leaving the car at home on {mine.day_label}.</p>,
+    paid: (
+      <p className="note">
+        Paid. Your commute earned {fmtInt(mine.trip_credits)} credits and leaving the car at home added{' '}
+        {fmtInt(mine.ask)}, so <strong>{fmtInt(mine.trip_credits + mine.ask)} credits</strong> in all. Both are in your
+        balance above and under Recent commutes on your route.
+      </p>
+    ),
     expired: <p className="note error">Your funded offer for {mine.day_label} expired without a verified commute.</p>,
   }[mine.status]
 }

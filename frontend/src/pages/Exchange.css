@@ -112,7 +112,7 @@
 .cf-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 40px; align-items: start; }
 .cf-book-title { margin: 0 0 8px; font-size: 1rem; }
 .car-free-side { display: grid; gap: 16px; }
-.car-free .hint { margin: 6px 0 0; font-size: 0.9rem; color: var(--ink-soft); }
+.cf-max { display: grid; gap: 6px; justify-items: start; }
 .suffixed input { padding-right: 80px; }
 .book-row.offer { grid-template-columns: 7ch 6ch 1fr; cursor: default; }
 .book-row.offer small { font-size: 0.85rem; }
