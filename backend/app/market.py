@@ -46,10 +46,16 @@ def _open_for(conn: sqlite3.Connection, buyer_id: int) -> list[dict]:
 
 
 def listings(conn: sqlite3.Connection, buyer_id: int) -> list[dict]:
+    """The order book as this buyer sees it, plus their own open listings (at the global price) marked `mine`."""
+    own = conn.execute("SELECT * FROM listings WHERE seller_id = ? AND status = 'open'", (buyer_id,)).fetchall()
+    rows = _open_for(conn, buyer_id) + [{**dict(r), "teammate": False, "mine": True, "price_dp": r["global_price_dp"]}
+                                       for r in own]
+    rows.sort(key=lambda r: (r["price_dp"], r["created_at"]))
     return [
-        {"id": r["id"], "seller": person(conn, r["seller_id"]), "teammate": r["teammate"], "qty": r["qty_remaining"],
-         "price_pence": pence(r["price_dp"]), "created_at": r["created_at"]}
-        for r in _open_for(conn, buyer_id)
+        {"id": r["id"], "seller": person(conn, r["seller_id"]), "teammate": r["teammate"], "mine": r.get("mine", False),
+         "qty": r["qty_remaining"], "price_pence": pence(r["price_dp"]),
+         "teammate_price_pence": pence(r["teammate_price_dp"]), "created_at": r["created_at"]}
+        for r in rows
     ]
 
 
@@ -137,6 +143,8 @@ def buy(conn: sqlite3.Connection, user_id: int, listing_id: int | str, qty: int,
                 raise Rejected(409, "Jane Street's price changed before your order reached it.")
             seller_id = None
         else:
+            if conn.execute("SELECT 1 FROM listings WHERE id = ? AND seller_id = ?", (listing_id, user_id)).fetchone():
+                raise Rejected(422, "That's your own listing. Cancel it under My listings instead.")
             row = next((r for r in _open_for(conn, user_id) if r["id"] == listing_id), None)
             if row is None or row["qty_remaining"] < qty or row["price_dp"] != price_dp:
                 raise Rejected(409, "That listing changed before your order reached it.")

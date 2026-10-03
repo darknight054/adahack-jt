@@ -1,3 +1,5 @@
+import os
+
 OFFICE = {
     "name": "Jane Street London",
     "short_name": "Devonshire Square",
@@ -66,4 +68,10 @@ TRACK_FINISH_RADIUS_M = 150
 TRACK_MIN_DURATION_FACTOR = 0.6  # can't beat 0.6x the OSRM duration
 TRACK_SPEED_KMH = {"walk": (3, 8, 12), "cycle": (8, 28, 40)}  # min avg, max avg, max 60 s window
 TRACK_STALE_AFTER_H = 3
+LIVE_HIDE_AFTER_S = 900  # teammates stop seeing a live position this long after its last fix
+NEAR_HOME_M = 2000  # teammates living this close are suggested as commute partners
+
+# Demo replay (app/demo.py): on unless DEMO_REPLAY=0, and how long the frontend animates it.
+DEMO_REPLAY = os.environ.get("DEMO_REPLAY", "1") != "0"
+DEMO_REPLAY_S = 10
 TOTP_STEP_S = 30

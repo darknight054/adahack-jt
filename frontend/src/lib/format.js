@@ -17,7 +17,9 @@ export const fmtDay = (iso) => day.format(new Date(iso))
 export const fmtShortDay = (iso) => shortDay.format(new Date(iso))
 
 export function fmtAgo(iso) {
-  const mins = Math.round((Date.parse(iso) - Date.now()) / 60_000)
+  const secs = Math.round((Date.parse(iso) - Date.now()) / 1000)
+  if (Math.abs(secs) < 60) return rel.format(secs, 'second')
+  const mins = Math.round(secs / 60)
   if (Math.abs(mins) < 60) return rel.format(mins, 'minute')
   const hours = Math.round(mins / 60)
   if (Math.abs(hours) < 24) return rel.format(hours, 'hour')

@@ -137,15 +137,7 @@ h3 { font-size: 1.05rem; line-height: 1.3; font-weight: 700; }
 .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 2px solid var(--ink); }
 .panel-head .muted { font-size: 0.9rem; }
 
-/* Line diagram */
-.line-map { width: 100%; height: auto; display: block; overflow: visible; }
-.line-map .route { fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.line-map .label { font-family: var(--sans); font-weight: 700; fill: var(--ink); paint-order: stroke; stroke: var(--paper); stroke-width: 6px; stroke-linejoin: round; }
-.line-map .label.minor { font-weight: 600; fill: var(--ink-soft); }
-.line-map .draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.4s cubic-bezier(0.6, 0, 0.3, 1) forwards; }
 @keyframes draw { to { stroke-dashoffset: 0; } }
-.line-map .fade-in { opacity: 0; animation: fade 0.5s ease-out forwards; }
-@keyframes fade { to { opacity: 1; } }
 
 /* Departures board */
 .board { background: var(--board); color: var(--amber); border-radius: 12px; padding: 18px 22px 22px; font-family: var(--dots); }
@@ -207,4 +199,38 @@ h3 { font-size: 1.05rem; line-height: 1.3; font-weight: 700; }
 .guide-card dl div { display: flex; justify-content: space-between; gap: 12px; font-size: 0.9rem; }
 .guide-card dd { margin: 0; font-weight: 750; white-space: nowrap; }
 .guide-card p { font-size: 0.85rem; }
-.mode-pip.bus, .mode-pip.carshare { --c: var(--ink-soft); }
+.icon { flex: none; }
+
+/* Maps: Leaflet on a light basemap, with pins drawn from the icon set */
+.osm { height: 540px; border-radius: 14px; z-index: 0; border: 1px solid var(--rule); background: #fbfbf9; }
+.osm .leaflet-tile-pane { filter: grayscale(1) contrast(0.8) brightness(1.08); opacity: 0.5; }
+.osm.network .leaflet-tile-pane { opacity: 0.38; }
+.osm .leaflet-tooltip {
+  font-family: var(--sans); font-weight: 650; font-size: 0.85rem; color: var(--ink); padding: 3px 8px;
+  border: 0; border-radius: 6px; box-shadow: 0 1px 4px rgb(0 0 0 / 0.2);
+}
+.osm .leaflet-tooltip.place-label { font-weight: 800; background: var(--ink); color: #fff; }
+.osm .leaflet-tooltip.place-label::before, .osm .leaflet-tooltip.area-label::before { display: none; }
+.osm .leaflet-tooltip.area-label { background: none; box-shadow: none; padding: 0 0 0 4px; font-size: 0.82rem; font-weight: 800; text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff; }
+.pin span {
+  display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; color: #fff;
+  background: var(--c); border: 2px solid #fff; box-shadow: 0 1px 4px rgb(0 0 0 / 0.3);
+}
+.pin.office span { border-width: 3px; box-shadow: 0 0 0 3px var(--ink), 0 2px 6px rgb(0 0 0 / 0.3); }
+.person-pin { position: relative; }
+.person-pin span { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; font: 800 11px var(--sans); }
+.person-pin.home span { background: #fff; color: var(--team); border: 3px solid var(--team); box-shadow: 0 1px 4px rgb(0 0 0 / 0.25); }
+.person-pin.live span { background: var(--team); color: #fff; border: 2px solid #fff; animation: ring 1.6s infinite; }
+.person-pin.stale span { opacity: 0.45; animation: none; }
+.person-pin b { position: absolute; right: -8px; top: -6px; padding: 0 5px; border-radius: 999px; background: var(--ink); color: #fff; font: 800 10px/16px var(--sans); }
+.person-pin b.mode { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; background: var(--c); border: 2px solid #fff; }
+@keyframes ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--team) 60%, transparent); }
+  100% { box-shadow: 0 0 0 12px transparent; }
+}
+.crowd-pin span {
+  display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%;
+  background: var(--c); color: #fff; border: 2px solid #fff; font: 800 11px var(--sans); box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+}
+.osm path.draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.4s cubic-bezier(0.6, 0, 0.3, 1) forwards; }
+@media (max-width: 760px) { .osm { height: 400px; } }

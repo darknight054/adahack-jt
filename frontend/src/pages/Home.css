@@ -5,9 +5,11 @@
 .hero .lede { font-size: 1.15rem; line-height: 1.6; color: var(--ink-soft); }
 .hero .actions { display: flex; gap: 12px; flex-wrap: wrap; }
 .hero-map { display: grid; gap: 10px; }
-.hero-map figcaption { font-size: 0.9rem; }
-.key { display: inline-block; width: 22px; height: 6px; border-radius: 3px; vertical-align: 3px; margin: 0 4px 0 8px; }
-.key:first-child { margin-left: 0; }
+.hero-map .osm { height: 560px; }
+.map-key { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 0.88rem; color: var(--ink-soft); }
+.map-key > span { display: inline-flex; align-items: center; gap: 8px; }
+.key { display: inline-block; width: 22px; height: 6px; border-radius: 3px; }
+.crowd-key { width: 16px; height: 16px; border-radius: 50%; background: linear-gradient(90deg, var(--walk) 50%, var(--cycle) 50%); border: 2px solid #fff; box-shadow: 0 0 0 1px var(--rule); }
 .key.walk { background: var(--walk); }
 .key.cycle { background: var(--cycle); }
 
@@ -43,3 +45,4 @@
 .winners-band ul { display: flex; gap: 12px 28px; flex-wrap: wrap; }
 .winners-band li { display: flex; align-items: baseline; gap: 12px; padding-left: 14px; box-shadow: inset 6px 0 0 var(--team); }
 .winners-band .team-name { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.01em; }
+@media (max-width: 760px) { .hero-map .osm { height: 420px; } }

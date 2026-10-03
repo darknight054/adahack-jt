@@ -14,9 +14,14 @@
 
 ## Gotchas
 - The root `.gitignore` is the Python template. Its `lib/` rule needs the `!frontend/src/lib/` exception, and `/docs` is ignored on purpose.
-- Mode ids and stop categories are also CSS variable names: `var(--walk)`, `var(--cycle)`, `var(--coffee)`, `var(--breakfast)`, `var(--scenic)`. Leaflet needs real colours, so `RouteMap` reads them with `getComputedStyle`.
-- OSM tiles come from `tile.openstreetmap.org` (keyless; keep the attribution). The tiles are greyscaled in CSS so the route stands out.
-- The Home diagram (`LineMap` + `src/lib/schematic.js`) builds lines outwards from the office and snaps them to 45°, so start points are approximate. Memoize `lines` in the caller.
+- Mode ids and stop categories are also CSS variable names (`var(--walk)`, `var(--cycle)`, `var(--coffee)`, `var(--breakfast)`, `var(--scenic)`) and keys in `src/lib/icons.js`.
+- Leaflet lines are SVG attributes, which can't read CSS variables, so use `cssVar()` from `src/lib/map.js`. Marker HTML (`pin`, `personPin`, `crowdPin`) can use `var(--x)`.
+- Map tiles:
+  - they come from `tile.openstreetmap.org`; keep the attribution
+  - CSS washes them out (`.osm .leaflet-tile-pane`) so the routes and pins stand out
+  - CARTO, Stadia and similar basemaps now need API keys; the rule is keyless
+- Icons are Lucide, imported by name in `src/lib/icons.js` (that keeps tree-shaking working). Use `<Icon name>` in React and `iconSvg()` inside Leaflet HTML.
+- `RouteMap` and `NetworkMap` are `React.lazy`-loaded so Leaflet stays out of the main bundle. Keep imports of `leaflet` and `lib/map.js` inside map components.
 - Commute tracking (`CommuteTracker`):
   - it only works while the page is visible
   - it holds a screen Wake Lock and posts points every `upload_every_s`
@@ -25,8 +30,9 @@
 
 ## Design rules
 - London transit look:
-  - schematic lines on Home
   - dark sign plates for page titles
   - amber dot-matrix boards for the leaderboard and tickers
+  - quiet maps where only our lines and pins have colour
+- Keep pages calm. Show the first few items of a long list with a "Show all" link or a scroll box, and hide zero rows.
 - Copy is sentence case, with no all-caps labels and no "→" on buttons. Errors say what happened and what to do.
-- Motion only responds to user actions, except the Home map draw-in. `prefers-reduced-motion` is handled globally.
+- Motion only responds to user actions, except the Home map draw-in and the pulse on live teammates. `prefers-reduced-motion` is handled globally.

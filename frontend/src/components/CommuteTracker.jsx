@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { api } from '../api/client'
 import { useActiveTrip, useCancelTrip, useFinishTrip, useStartTrip } from '../api/hooks'
+import DemoReplay from './DemoReplay'
 import { fmtSigned } from '../lib/format'
 
 const toFix = (p) => ({ lat: p.coords.latitude, lon: p.coords.longitude, accuracy_m: p.coords.accuracy, t_ms: p.timestamp })
@@ -52,7 +53,10 @@ function Tracking({ trip, finish }) {
         <span className="pulse" aria-hidden="true" /> Tracking your {trip.mode} since{' '}
         {new Date(trip.started_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}, {sent} points sent.
       </p>
-      <p className="muted">Keep this page open with the screen on. At the office, scan the code on the door or type it here.</p>
+      <p className="muted">
+        Keep this page open with the screen on. Your team sees where you are until you finish. At the office, scan the
+        code on the door or type it here.
+      </p>
       <div className="field">
         <label htmlFor="door-code">Door code</label>
         <input id="door-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={code}
@@ -67,7 +71,8 @@ function Tracking({ trip, finish }) {
   )
 }
 
-export default function CommuteTracker({ config, defaultMode }) {
+export default function CommuteTracker({ config, route, onReplay }) {
+  const defaultMode = route.mode
   const active = useActiveTrip()
   const start = useStartTrip()
   const [mode, setMode] = useState(defaultMode)
@@ -85,7 +90,7 @@ export default function CommuteTracker({ config, defaultMode }) {
     }
   }
   return (
-    <section className="panel" aria-labelledby="tracker-title">
+    <section className="panel commute-now" aria-labelledby="tracker-title">
       <div className="panel-head"><h2 id="tracker-title">Commute now</h2></div>
       {active.data ? <Tracking trip={active.data} finish={finish} /> : (
         <div className="tracker">
@@ -106,6 +111,9 @@ export default function CommuteTracker({ config, defaultMode }) {
           <button className="btn primary" onClick={begin} disabled={start.isPending}>
             {start.isPending ? 'Starting…' : 'Start commute'}
           </button>
+          {config.demo && (
+            <DemoReplay key={route.id} route={route} config={config} onStart={onReplay} onStop={() => onReplay(null)} />
+          )}
         </div>
       )}
     </section>
