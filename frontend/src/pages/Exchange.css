@@ -1,0 +1,70 @@
+.exchange { gap: 24px; }
+
+.ticker dl { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; margin: 0; }
+.ticker dt { font-family: var(--sans); font-size: 0.85rem; color: #c9cfdc; }
+.ticker dd { margin: 4px 0 0; font-size: clamp(1.2rem, 2.2vw, 1.8rem); font-weight: 800; }
+
+.ex-grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 40px; align-items: start; }
+.ex-grid.even { grid-template-columns: 1fr 1fr; }
+.ex-side { display: grid; gap: 36px; }
+
+.book { display: grid; }
+.book-row {
+  position: relative; display: grid; grid-template-columns: 7ch 8ch 1fr; gap: 12px; align-items: center;
+  min-height: 52px; padding: 8px 10px; text-align: left; background: none; border: 0;
+  border-bottom: 1px solid var(--rule); cursor: pointer; isolation: isolate;
+}
+.book-row::before {
+  content: ''; position: absolute; inset: 6px auto 6px 0; width: var(--depth, 0); z-index: -1;
+  background: color-mix(in srgb, var(--walk) 14%, transparent); border-radius: 0 6px 6px 0;
+}
+.book-row.head { min-height: 0; padding: 0 10px 8px; font-size: 0.85rem; font-weight: 650; color: var(--ink-soft); cursor: default; border-bottom: 2px solid var(--ink); }
+.book-row:not(.head):hover { background: var(--plate); }
+.book-row[aria-selected='true'] { background: var(--plate); box-shadow: inset 4px 0 0 var(--ink); }
+.book-row .price { font-weight: 800; font-size: 1.1rem; }
+.book-row .seller { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.book-row.house { border-bottom: 0; border-top: 2px dashed var(--rule); margin-top: 6px; }
+.book-row.house .seller { font-weight: 650; }
+
+.ticket { border: 2px solid var(--ink); border-radius: var(--radius-sign); background: var(--plate); overflow: hidden; }
+.ticket-tabs { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 2px solid var(--ink); }
+.ticket-tabs button { min-height: 48px; border: 0; background: transparent; font-weight: 700; cursor: pointer; }
+.ticket-tabs button + button { border-left: 2px solid var(--ink); }
+.ticket-tabs button[aria-selected='true'] { background: var(--ink); color: #fff; }
+.ticket-body { padding: 20px; }
+.ticket-form { display: grid; gap: 16px; }
+.price-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.suffixed { position: relative; }
+.suffixed span { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--ink-soft); font-weight: 650; }
+.convert-result { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.01em; }
+
+/* Confirmation slides out like a printed ticket */
+.receipt {
+  display: grid; gap: 14px; padding: 18px; background: #fff; border-radius: 8px;
+  border: 2px dashed var(--rule); animation: print 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes print { from { clip-path: inset(0 0 100% 0); transform: translateY(-12px); } to { clip-path: inset(0); transform: none; } }
+.receipt-title { font-size: 1.4rem; font-weight: 800; }
+.receipt dl { display: grid; gap: 6px; margin: 0; }
+.receipt dl div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px dotted var(--rule); padding-bottom: 6px; }
+.receipt dt { color: var(--ink-soft); }
+.receipt dd { margin: 0; font-weight: 700; }
+
+.chart svg { width: 100%; height: auto; display: block; }
+.chart .guide { stroke: var(--rule); stroke-width: 1.5; stroke-dasharray: 4 4; }
+.chart .axis { font-size: 13px; fill: var(--ink-soft); font-family: var(--sans); }
+.chart .price { fill: none; stroke: var(--cycle); stroke-width: 3; stroke-linejoin: round; }
+.chart .price-dot { fill: var(--cycle); stroke: var(--plate); stroke-width: 3; }
+
+.tag.buy { background: var(--walk); }
+.tag.sell { background: var(--cycle); }
+
+@media (max-width: 960px) {
+  .ex-grid, .ex-grid.even { grid-template-columns: 1fr; }
+  .ticker dl { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .ticker dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .book-row { grid-template-columns: 6ch 6ch 1fr; gap: 8px; }
+  .price-pair { grid-template-columns: 1fr; }
+}
