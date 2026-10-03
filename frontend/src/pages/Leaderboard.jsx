@@ -5,6 +5,7 @@ import Query from '../components/Query'
 import { fmtAgo, fmtCountdown, fmtDay, fmtInt, fmtSigned } from '../lib/format'
 import './Leaderboard.css'
 
+const FEED_SHOWN = 8
 const lastDay = (iso) => new Date(Date.parse(iso) - 1).toISOString()
 
 function Row({ t, board, i }) {
@@ -54,12 +55,12 @@ function TeamFeed({ activity }) {
         <h2 id="feed-title">Your team lately</h2>
       </div>
       <ul className="ledger">
-        {activity.map((a) => (
+        {activity.slice(0, FEED_SHOWN).map((a) => (
           <li key={a.id}>
             <Avatar person={a.user} small />
             <span>
               <strong>{a.user.name.split(' ')[0]}</strong>: {a.detail}
-              <span className="sub"> {fmtAgo(a.at)}</span>
+              <span className="sub when">{fmtAgo(a.at)}</span>
             </span>
             <span className={`amount ${a.credits > 0 ? 'gain' : 'loss'}`}>{fmtSigned(a.credits)}</span>
           </li>

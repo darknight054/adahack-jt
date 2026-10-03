@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   useBuy, useCancelListing, useConfig, useConvert, useCreateListing, useListings, useMarket, useMyListings,
-  useMyTrades, useWallet,
+  useMyTrades, useRoutes, useWallet,
 } from '../api/hooks'
 import Avatar from '../components/Avatar'
 import Query from '../components/Query'
@@ -37,6 +37,7 @@ function PriceChart({ market }) {
   const W = 600
   const H = 180
   const pad = { l: 44, r: 12, t: 12, b: 26 }
+  if (market.history.length === 0) return <p className="muted">No trades in the past week yet.</p>
   const pts = market.history.map((h) => [Date.parse(h.at), h.price_pence])
   const t0 = pts[0][0]
   const t1 = Math.max(pts.at(-1)[0], t0 + 1)
@@ -70,31 +71,37 @@ function OrderBook({ listings, market, selected, onSelect }) {
     <section className="panel" aria-labelledby="book-title">
       <div className="panel-head">
         <h2 id="book-title">Credits for sale</h2>
-        <span className="muted">Cheapest first</span>
+        <span className="muted">{listings.length} offers, cheapest first</span>
       </div>
       <div className="book" role="listbox" aria-label="Pick a listing to buy from">
         <div className="book-row head" aria-hidden="true">
           <span>Price</span><span>Credits</span><span>Seller</span>
         </div>
         {listings.length === 0 && <p className="muted">No colleague is selling right now. Jane Street’s price is always available.</p>}
-        {listings.map((l) => (
-          <button
-            key={l.id}
-            role="option"
-            aria-selected={selected === l.id}
-            className="book-row"
-            style={{ '--depth': `${(l.qty / deepest) * 100}%` }}
-            onClick={() => onSelect(l.id)}
-          >
-            <span className="price">{fmtPence(l.price_pence)}</span>
-            <span>{fmtInt(l.qty)}</span>
-            <span className="seller">
-              <Avatar person={l.seller} small />
-              <span>{l.seller.name}</span>
-              {l.teammate && <span className="tag">Teammate price</span>}
-            </span>
-          </button>
-        ))}
+        <div className="book-scroll">
+          {listings.map((l) => (
+            <button
+              key={l.id}
+              role="option"
+              aria-selected={selected === l.id}
+              aria-disabled={l.mine || undefined}
+              className={l.mine ? 'book-row mine' : 'book-row'}
+              style={{ '--depth': `${(l.qty / deepest) * 100}%` }}
+              onClick={l.mine ? undefined : () => onSelect(l.id)}
+              title={l.mine ? 'Your listing. Cancel it under My listings.' : undefined}
+            >
+              <span className="price">{fmtPence(l.price_pence)}</span>
+              <span>{fmtInt(l.qty)}</span>
+              <span className="seller">
+                <Avatar person={l.seller} small />
+                <span>{l.seller.name}</span>
+                {l.mine
+                  ? <span className="tag mine">Your listing, {fmtPence(l.teammate_price_pence)} to teammates</span>
+                  : l.teammate && <span className="tag">Teammate price</span>}
+              </span>
+            </button>
+          ))}
+        </div>
         <button
           role="option"
           aria-selected={selected === HOUSE}
@@ -356,9 +363,34 @@ function MyTrades() {
   )
 }
 
-function Market({ config, market, listings, wallet }) {
+function YourCredits({ wallet, config, route }) {
+  const { tokens_per_credit: tokens, pence_per_credit: pence } = config.conversions
+  const stats = [
+    ['Balance', wallet.balance],
+    ['Free to sell', wallet.sellable],
+    ['Listed for sale', wallet.listed],
+    ['Converted this week', wallet.week.converted],
+  ]
+  return (
+    <section className="panel" aria-labelledby="yours-title">
+      <div className="panel-head"><h2 id="yours-title">Your credits</h2></div>
+      <dl className="your-credits">
+        {stats.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{fmtInt(v)}</dd></div>)}
+      </dl>
+      {route && (
+        <p className="explain">
+          Your walk {route.name.replace(/^Via /, 'via ')} earns <strong>{fmtInt(route.credits)} credits</strong>. That converts to{' '}
+          {fmtInt(route.credits * tokens)} coding tokens or {fmtGbp(route.credits * pence)}, or you can sell it here.
+        </p>
+      )}
+      <p className="muted small">Only credits you earn can be sold. Cash payouts and trade payments are simulated in this demo.</p>
+    </section>
+  )
+}
+
+function Market({ config, market, listings, wallet, route }) {
   const [tab, setTab] = useState('buy')
-  const [selected, setSelected] = useState(listings[0]?.id ?? HOUSE)
+  const [selected, setSelected] = useState(listings.find((x) => !x.mine)?.id ?? HOUSE)
   const l = listings.find((x) => x.id === selected)
   const listing = l
     ? { id: l.id, seller: l.seller.name, price_pence: l.price_pence, qty: l.qty }
@@ -373,6 +405,7 @@ function Market({ config, market, listings, wallet }) {
       <div className="ex-grid">
         <OrderBook listings={listings} market={market} selected={listing.id} onSelect={pick} />
         <div className="ex-side">
+          <YourCredits wallet={wallet} config={config} route={route} />
           <Ticket tab={tab} setTab={setTab} listing={listing} market={market} wallet={wallet} config={config} />
           <section className="panel" aria-labelledby="chart-title">
             <div className="panel-head"><h2 id="chart-title">Price this week</h2></div>
@@ -393,6 +426,8 @@ export default function Exchange() {
   const market = useMarket()
   const listings = useListings()
   const wallet = useWallet()
+  const routes = useRoutes()
+  const walk = routes.data?.routes.find((r) => r.mode === 'walk')
   return (
     <main className="page exchange">
       <header className="sign" style={{ '--line': 'var(--cycle)' }}>
@@ -400,7 +435,7 @@ export default function Exchange() {
         <span className="sign-meta">Buy credits from colleagues, sell what you earned, or convert</span>
       </header>
       <Query q={[config, market, listings, wallet]}>
-        {(cfg, m, ls, w) => <Market config={cfg} market={m} listings={ls} wallet={w} />}
+        {(cfg, m, ls, w) => <Market config={cfg} market={m} listings={ls} wallet={w} route={walk} />}
       </Query>
     </main>
   )

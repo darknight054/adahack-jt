@@ -32,6 +32,12 @@ export const useTrips = () => useQuery({ queryKey: ['trips'], queryFn: get('/api
 export const useActiveTrip = () => useQuery({ queryKey: ['trips', 'active'], queryFn: get('/api/trips/active') })
 export const useTeamActivity = () => useQuery({ queryKey: ['activity', 'team'], queryFn: get('/api/activity?scope=team') })
 export const useTeamTrees = () => useQuery({ queryKey: ['team', 'trees'], queryFn: get('/api/team/trees') })
+// Polls at the tracker's upload cadence so live teammates move as their points arrive.
+export const useTeamMap = () => useQuery({
+  queryKey: ['team', 'map'],
+  queryFn: get('/api/team/map'),
+  refetchInterval: (q) => (q.state.data?.refresh_s ?? 0) * 1000,
+})
 export const useLogTree = () => {
   const client = useQueryClient()
   return useMutation({
@@ -67,17 +73,21 @@ export const useCreateListing = () => useWalletMutation((listing) => api.post('/
 export const useCancelListing = () => useWalletMutation((id) => api.delete(`/api/market/listings/${id}`))
 export const useConvert = () => useWalletMutation((req) => api.post('/api/wallet/convert', req))
 
-function useTripMutation(mutationFn) {
+/** Refetches everything a finished commute changes: trips, wallet, office stats, standings and team views. */
+export function useRefreshAfterTrip() {
   const client = useQueryClient()
-  return useMutation({
-    mutationFn,
-    onSettled: () => Promise.all([
-      client.invalidateQueries({ queryKey: ['trips'] }),
-      client.invalidateQueries({ queryKey: ['wallet'] }),
-    ]),
-  })
+  return () => Promise.all(['trips', 'wallet', 'stats', 'leaderboard', 'activity', 'team'].map(
+    (key) => client.invalidateQueries({ queryKey: [key] }),
+  ))
+}
+
+function useTripMutation(mutationFn) {
+  const refresh = useRefreshAfterTrip()
+  return useMutation({ mutationFn, onSettled: refresh })
 }
 
 export const useStartTrip = () => useTripMutation((body) => api.post('/api/trips/start', body))
 export const useFinishTrip = () => useTripMutation(({ id, ...body }) => api.post(`/api/trips/${id}/finish`, body))
 export const useCancelTrip = () => useTripMutation((id) => api.post(`/api/trips/${id}/cancel`))
+// No refetch here: DemoReplay calls useRefreshAfterTrip once its animation ends, so the numbers change on arrival.
+export const useDemoReplay = () => useMutation({ mutationFn: (routeId) => api.post('/api/demo/replay', { route_id: routeId }) })

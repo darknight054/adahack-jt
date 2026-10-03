@@ -13,3 +13,7 @@ dependencies = [
 
 [tool.uv]
 package = false
+
+# Vercel imports the app as a module, so the package's relative imports work.
+[tool.vercel]
+entrypoint = "app.main:app"

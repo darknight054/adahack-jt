@@ -1,34 +1,12 @@
-import { useMemo } from 'react'
+import { lazy, Suspense } from 'react'
 import { Link } from 'react-router'
 import { useConfig, useLeaderboard, useNetwork, useWeekStats } from '../api/hooks'
-import LineMap from '../components/LineMap'
 import Query from '../components/Query'
 import { fmtCompact, fmtInt, fmtOne, fmtSigned } from '../lib/format'
 import './Home.css'
 
-function NetworkMap({ office, network }) {
-  const lines = useMemo(
-    () => network.map((n) => ({
-      id: n.id,
-      coords: n.coords,
-      colour: `var(--${n.mode})`,
-      width: 5 + Math.min(n.colleagues, 8),
-      label: n.colleagues > 2 ? n.label : undefined,
-      labelClass: 'minor',
-    })),
-    [network],
-  )
-  return (
-    <LineMap
-      office={office}
-      lines={lines}
-      animate
-      tolerance={120}
-      labelSize={19}
-      title={`Commutes from ${network.length} neighbourhoods drawn as lines into ${office.short_name}`}
-    />
-  )
-}
+// Leaflet only loads on the pages with a map.
+const NetworkMap = lazy(() => import('../components/NetworkMap'))
 
 function Week({ config }) {
   const { credits, modes, conversions, flat_trips: flat } = config
@@ -136,11 +114,16 @@ export default function Home() {
             </div>
             <figure className="hero-map">
               <Query q={network} loading="Drawing this week’s commutes…">
-                {(net) => <NetworkMap office={cfg.office} network={net} />}
+                {(net) => (
+                  <Suspense fallback={<div className="osm" />}>
+                    <NetworkMap office={cfg.office} network={net} modes={cfg.modes} />
+                  </Suspense>
+                )}
               </Query>
-              <figcaption className="muted">
-                <span className="key walk" /> Walking <span className="key cycle" /> Cycling. Each line is a
-                neighbourhood’s usual route to {cfg.office.short_name}; thicker lines carry more colleagues.
+              <figcaption className="map-key">
+                <span><span className="key walk" /> Walking route</span>
+                <span><span className="key cycle" /> Cycling route</span>
+                <span><span className="crowd-key" /> Colleagues who live there, by count</span>
               </figcaption>
             </figure>
           </section>

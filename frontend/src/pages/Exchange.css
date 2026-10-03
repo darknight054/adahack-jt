@@ -9,6 +9,12 @@
 .ex-side { display: grid; gap: 36px; }
 
 .book { display: grid; }
+.book-scroll { display: grid; max-height: 560px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.your-credits { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; margin: 0; }
+.your-credits dt { font-size: 0.85rem; color: var(--ink-soft); }
+.your-credits dd { margin: 0; font-size: 1.3rem; font-weight: 800; }
+.explain { font-size: 0.95rem; padding: 10px 12px; border-radius: 8px; background: var(--plate); border-left: 4px solid var(--walk); }
+.small { font-size: 0.85rem; }
 .book-row {
   position: relative; display: grid; grid-template-columns: 7ch 8ch 1fr; gap: 12px; align-items: center;
   min-height: 52px; padding: 8px 10px; text-align: left; background: none; border: 0;
@@ -68,3 +74,7 @@
   .book-row { grid-template-columns: 6ch 6ch 1fr; gap: 8px; }
   .price-pair { grid-template-columns: 1fr; }
 }
+.book-row.mine { cursor: default; }
+.book-row.mine:hover { background: none; }
+.book-row.mine::before { background: color-mix(in srgb, var(--cycle) 14%, transparent); }
+.tag.mine { background: var(--cycle); }

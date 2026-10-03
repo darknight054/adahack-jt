@@ -1,4 +1,5 @@
 import json
+import os
 import sqlite3
 from datetime import timedelta
 from typing import Annotated, Literal
@@ -8,7 +9,7 @@ from fastapi import Depends, FastAPI, File, Form, Header, Request, Response, Upl
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from . import auth, config, economy, market, trips
+from . import auth, config, demo, economy, market, places, trips
 from .db import get_conn, write
 from .economy import iso, now
 from .errors import Rejected
@@ -52,7 +53,7 @@ def login(body: Login, response: Response, conn: Conn):
     if not user or not auth.check_password(body.password, user["password_hash"]):
         raise Rejected(401, "That username and password don't match.")
     response.set_cookie(auth.COOKIE, auth.sign(conn, user["id"]), max_age=auth.MAX_AGE_S, httponly=True,
-                        samesite="lax", secure=False)
+                        samesite="lax", secure=bool(os.environ.get("VERCEL")))
     return me(user, conn)
 
 
@@ -91,6 +92,7 @@ def get_config(conn: Conn):
             "min_cashout_credits": config.MIN_CASHOUT_CREDITS,
         },
         "market": {"floor_price_pence": market.pence(floor), "house_price_pence": market.pence(house)},
+        "demo": {"replay_s": config.DEMO_REPLAY_S} if config.DEMO_REPLAY else None,
     }
 
 
@@ -103,13 +105,13 @@ def _area_mode(conn: sqlite3.Connection, area_id: int) -> str:
 @app.get("/api/network")
 def network(conn: Conn):
     out = []
-    for a in conn.execute("SELECT a.id, a.name, COUNT(u.id) AS n FROM areas a JOIN users u ON u.area_id = a.id "
-                          "GROUP BY a.id"):
+    for a in conn.execute("SELECT a.id, a.name, a.lat, a.lon, COUNT(u.id) AS n FROM areas a "
+                          "JOIN users u ON u.area_id = a.id GROUP BY a.id"):
         mode = _area_mode(conn, a["id"])
         r = conn.execute("SELECT coords FROM routes WHERE area_id = ? AND mode = ? AND rank = 0",
                          (a["id"], mode)).fetchone()
         out.append({"id": a["id"], "label": a["name"], "mode": mode, "colleagues": a["n"],
-                    "coords": json.loads(r["coords"])})
+                    "lat": a["lat"], "lon": a["lon"], "coords": json.loads(r["coords"])})
     return out
 
 
@@ -258,6 +260,18 @@ def trip_cancel(trip_id: int, user: User, conn: Conn):
     trips.cancel(conn, user["id"], trip_id)
 
 
+class Replay(BaseModel):
+    route_id: int
+
+
+@app.post("/api/demo/replay")
+def demo_replay(body: Replay, user: User, conn: Conn):
+    """Runs one of your routes through the real tracking checks on a simulated clock (app/demo.py)."""
+    if not config.DEMO_REPLAY:
+        raise Rejected(404, "Demo replay is turned off on this server.")
+    return demo.replay(conn, user["id"], body.route_id, now())
+
+
 @app.get("/api/office/code")
 def office_code(conn: Conn, x_staff_key: Annotated[str | None, Header()] = None):
     """For the screen on the office door, which shows this code as a QR."""
@@ -294,6 +308,36 @@ def team_trees(user: User, conn: Conn):
         "GROUP BY user_id, place", ids).fetchall() if ids else []
     return [{"user": market.person(conn, r["user_id"]), "place": r["place"], "lat": r["lat"], "lon": r["lon"],
              "trees": r["trees"]} for r in rows]
+
+
+@app.get("/api/team/map")
+def team_map(user: User, conn: Conn):
+    """Teammates' home neighbourhoods, and their latest position while they track a commute."""
+    at = now()
+    mine = conn.execute("SELECT lat, lon FROM areas WHERE id = ?", (user["area_id"],)).fetchone()
+    homes: dict[int, dict] = {}
+    for r in conn.execute("SELECT u.id, u.usual_mode, a.id AS area_id, a.name, a.lat, a.lon FROM users u "
+                          "JOIN areas a ON a.id = u.area_id WHERE u.team_id = ? AND u.id != ? ORDER BY u.name",
+                          (user["team_id"], user["id"])):
+        home = homes.setdefault(r["area_id"], {
+            "area": r["name"], "lat": r["lat"], "lon": r["lon"], "people": [],
+            "near_me": places.haversine_m([mine["lat"], mine["lon"]], [r["lat"], r["lon"]]) <= config.NEAR_HOME_M,
+        })
+        home["people"].append(market.person(conn, r["id"]) | {"usual_mode": r["usual_mode"]})
+    live = conn.execute(
+        "SELECT t.user_id, t.mode, p.lat, p.lon, p.received_at FROM trips t JOIN users u ON u.id = t.user_id "
+        "JOIN trip_points p ON p.trip_id = t.id AND (p.seq, p.idx) = "
+        "(SELECT seq, idx FROM trip_points WHERE trip_id = t.id ORDER BY seq DESC, idx DESC LIMIT 1) "
+        "WHERE t.status = 'active' AND u.team_id = ? AND u.id != ? AND p.received_at >= ?",
+        (user["team_id"], user["id"], iso(at - timedelta(seconds=config.LIVE_HIDE_AFTER_S)))).fetchall()
+    return {
+        "homes": list(homes.values()),
+        "live": [{"user": market.person(conn, r["user_id"]), "mode": r["mode"], "lat": r["lat"], "lon": r["lon"],
+                  "at": r["received_at"],
+                  "stale": (at - economy.parse(r["received_at"])).total_seconds() > config.TRACK_MAX_POINT_AGE_S}
+                 for r in live],
+        "refresh_s": config.TRACK_UPLOAD_EVERY_S,
+    }
 
 
 @app.post("/api/trees")

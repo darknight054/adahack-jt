@@ -29,3 +29,4 @@
 .standings .board-row.dim .status { font-size: inherit; }
 .standings .board-row { font-size: clamp(1rem, 1.5vw, 1.3rem); }
 .standings .board-row.dim { font-size: 0.85rem; }
+.ledger .sub.when { display: block; }
