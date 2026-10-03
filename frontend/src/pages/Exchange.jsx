@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import {
   useBuy, useCancelListing, useConfig, useConvert, useCreateListing, useListings, useMarket, useMyListings,
-  useMyTrades, useRoutes, useWallet,
+  useExchangePolling, useMyTrades, useRoutes, useSwitch, useWallet,
 } from '../api/hooks'
 import Avatar from '../components/Avatar'
+import CarFreeOffers from '../components/CarFreeOffers'
 import Query from '../components/Query'
 import { fmtAgo, fmtCompact, fmtGbp, fmtInt, fmtOne, fmtPence, fmtShortDay } from '../lib/format'
 import './Exchange.css'
@@ -312,7 +313,7 @@ function Ticket({ tab, setTab, listing, market, wallet, config }) {
 }
 
 function MyListings() {
-  const mine = useMyListings()
+  const mine = useMyListings(useExchangePolling())
   const cancel = useCancelListing()
   return (
     <section className="panel" aria-labelledby="mine-title">
@@ -338,7 +339,7 @@ function MyListings() {
 }
 
 function MyTrades() {
-  const trades = useMyTrades()
+  const trades = useMyTrades(useExchangePolling())
   return (
     <section className="panel" aria-labelledby="trades-title">
       <div className="panel-head"><h2 id="trades-title">My trades</h2></div>
@@ -372,23 +373,28 @@ function YourCredits({ wallet, config, route }) {
     ['Converted this week', wallet.week.converted],
   ]
   return (
-    <section className="panel" aria-labelledby="yours-title">
+    <section className="panel zone" aria-labelledby="yours-title">
       <div className="panel-head"><h2 id="yours-title">Your credits</h2></div>
-      <dl className="your-credits">
-        {stats.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{fmtInt(v)}</dd></div>)}
-      </dl>
-      {route && (
-        <p className="explain">
-          Your walk {route.name.replace(/^Via /, 'via ')} earns <strong>{fmtInt(route.credits)} credits</strong>. That converts to{' '}
-          {fmtInt(route.credits * tokens)} coding tokens or {fmtGbp(route.credits * pence)}, or you can sell it here.
-        </p>
-      )}
-      <p className="muted small">Only credits you earn can be sold. Cash payouts and trade payments are simulated in this demo.</p>
+      <div className="yours">
+        <dl className="your-credits wide">
+          {stats.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{fmtInt(v)}</dd></div>)}
+        </dl>
+        <div>
+          {route && (
+            <p className="explain">
+              Your walk {route.name.replace(/^Via /, 'via ')} earns <strong>{fmtInt(route.credits)} credits</strong>. That
+              converts to {fmtInt(route.credits * tokens)} coding tokens or {fmtGbp(route.credits * pence)}, or you can
+              sell it here.
+            </p>
+          )}
+          <p className="muted small">Only credits you earn can be sold. Cash payouts and trade payments are simulated in this demo.</p>
+        </div>
+      </div>
     </section>
   )
 }
 
-function Market({ config, market, listings, wallet, route }) {
+function Market({ config, market, listings, wallet, route, offers }) {
   const [tab, setTab] = useState('buy')
   const [selected, setSelected] = useState(listings.find((x) => !x.mine)?.id ?? HOUSE)
   const l = listings.find((x) => x.id === selected)
@@ -401,31 +407,40 @@ function Market({ config, market, listings, wallet, route }) {
   }
   return (
     <>
-      <Ticker market={market} />
-      <div className="ex-grid">
-        <OrderBook listings={listings} market={market} selected={listing.id} onSelect={pick} />
-        <div className="ex-side">
-          <YourCredits wallet={wallet} config={config} route={route} />
-          <Ticket tab={tab} setTab={setTab} listing={listing} market={market} wallet={wallet} config={config} />
-          <section className="panel" aria-labelledby="chart-title">
-            <div className="panel-head"><h2 id="chart-title">Price this week</h2></div>
-            <PriceChart market={market} />
-          </section>
+      <YourCredits wallet={wallet} config={config} route={route} />
+      <CarFreeOffers book={offers} config={config} />
+      <section className="panel zone market" aria-labelledby="market-title">
+        <div className="panel-head">
+          <h2 id="market-title">Buy and sell credits</h2>
+          <span className="muted">Colleagues' listings, Jane Street's price, or convert</span>
         </div>
-      </div>
-      <div className="ex-grid even">
-        <MyListings />
-        <MyTrades />
-      </div>
+        <Ticker market={market} />
+        <div className="ex-grid">
+          <OrderBook listings={listings} market={market} selected={listing.id} onSelect={pick} />
+          <div className="ex-side">
+            <Ticket tab={tab} setTab={setTab} listing={listing} market={market} wallet={wallet} config={config} />
+            <section className="panel" aria-labelledby="chart-title">
+              <div className="panel-head"><h2 id="chart-title">Price this week</h2></div>
+              <PriceChart market={market} />
+            </section>
+          </div>
+        </div>
+        <div className="ex-grid even">
+          <MyListings />
+          <MyTrades />
+        </div>
+      </section>
     </>
   )
 }
 
 export default function Exchange() {
   const config = useConfig()
-  const market = useMarket()
-  const listings = useListings()
-  const wallet = useWallet()
+  const poll = useExchangePolling()
+  const market = useMarket(poll)
+  const listings = useListings(poll)
+  const offers = useSwitch(poll)
+  const wallet = useWallet(poll)
   const routes = useRoutes()
   const walk = routes.data?.routes.find((r) => r.mode === 'walk')
   return (
@@ -434,8 +449,8 @@ export default function Exchange() {
         <h1>Credit exchange</h1>
         <span className="sign-meta">Buy credits from colleagues, sell what you earned, or convert</span>
       </header>
-      <Query q={[config, market, listings, wallet]}>
-        {(cfg, m, ls, w) => <Market config={cfg} market={m} listings={ls} wallet={w} route={walk} />}
+      <Query q={[config, market, listings, wallet, offers]}>
+        {(cfg, m, ls, w, o) => <Market config={cfg} market={m} listings={ls} wallet={w} route={walk} offers={o} />}
       </Query>
     </main>
   )

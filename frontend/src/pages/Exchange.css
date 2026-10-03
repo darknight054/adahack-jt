@@ -1,4 +1,13 @@
-.exchange { gap: 24px; }
+.exchange { gap: 32px; }
+
+/* Each part of the page is its own plate: your credits (ink), car-free offers (walk green), trading (cycle blue). */
+.zone {
+  gap: 24px; padding: 22px 28px 28px; background: var(--plate); border: 1px solid var(--rule);
+  border-top: 6px solid var(--zone, var(--ink)); border-radius: 12px;
+}
+.zone.car-free { --zone: var(--walk); }
+.zone.market { --zone: var(--cycle); }
+.zone .explain, .zone .note, .zone .ticket { background: var(--paper); }
 
 .ticker dl { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; margin: 0; }
 .ticker dt { font-family: var(--sans); font-size: 0.85rem; color: #c9cfdc; }
@@ -66,10 +75,12 @@
 .tag.sell { background: var(--cycle); }
 
 @media (max-width: 960px) {
-  .ex-grid, .ex-grid.even { grid-template-columns: 1fr; }
+  .ex-grid, .ex-grid.even, .yours, .cf-grid, .cf-steps { grid-template-columns: 1fr; }
   .ticker dl { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 520px) {
+  .zone { padding: 18px 16px 20px; }
+  .your-credits.wide { grid-template-columns: 1fr 1fr; }
   .ticker dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .book-row { grid-template-columns: 6ch 6ch 1fr; gap: 8px; }
   .price-pair { grid-template-columns: 1fr; }
@@ -78,3 +89,42 @@
 .book-row.mine:hover { background: none; }
 .book-row.mine::before { background: color-mix(in srgb, var(--cycle) 14%, transparent); }
 .tag.mine { background: var(--cycle); }
+
+/* Car-free offers: asks cheapest first, shaded while they fit the budget, with a line where it runs out */
+.yours { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 40px; align-items: start; }
+.your-credits.wide { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.yours .explain { margin-top: 0; }
+
+.cf-steps { list-style: none; margin: 0 0 28px; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.cf-steps li {
+  display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; align-content: start;
+  padding: 14px 16px; border-radius: 8px; border: 2px solid var(--rule); background: var(--paper);
+}
+.cf-steps li > :not(.cf-num) { grid-column: 2; }
+.cf-steps li span:last-child { font-size: 0.9rem; color: var(--ink-soft); }
+.cf-num {
+  grid-row: span 2; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--rule); font-weight: 800;
+}
+.cf-steps li.now { border-color: var(--ink); }
+.cf-steps li.now .cf-num { background: var(--ink); color: #fff; }
+.cf-steps li.done .cf-num { background: var(--walk); color: #fff; }
+.cf-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 40px; align-items: start; }
+.cf-book-title { margin: 0 0 8px; font-size: 1rem; }
+.car-free-side { display: grid; gap: 16px; }
+.cf-max { display: grid; gap: 6px; justify-items: start; }
+.suffixed input { padding-right: 80px; }
+.book-row.offer { grid-template-columns: 7ch 6ch 1fr; cursor: default; }
+.book-row.offer small { font-size: 0.85rem; }
+.cf-book-note { margin: 0 0 8px; }
+
+.book-row.offer:hover { background: none; }
+.book-row.offer.fits::before { width: 100%; }
+.book-row.offer.mine { box-shadow: inset 4px 0 0 var(--cycle); }
+.book-row.offer.mine .seller > span:not(.tag) { font-weight: 800; }
+.budget-line {
+  margin: 4px 0; padding: 4px 10px; border-top: 2px dashed var(--ink);
+  font-size: 0.85rem; font-weight: 700; color: var(--ink-soft);
+}
+.tag.funded, .tag.paid { background: var(--walk); }
+.tag.waitlisted, .tag.expired { background: var(--ink-soft); }

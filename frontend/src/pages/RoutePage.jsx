@@ -221,9 +221,10 @@ function Trips({ data, config }) {
                 <span className="sub">
                   {' '}{t.distance_mi != null && `${fmtOne(t.distance_mi)} mi, `}{fmtAgo(t.at)}
                   {t.status !== 'verified' && `, ${t.status === 'review' ? 'being checked' : t.status}`}
+                  {t.bonus > 0 && `, plus a ${fmtInt(t.bonus)}-credit car-free bonus`}
                 </span>
               </span>
-              <span className="amount gain">{fmtSigned(t.credits)}</span>
+              <span className="amount gain">{fmtSigned(t.credits + t.bonus)}</span>
             </li>
           ))}
         </ul>
@@ -331,7 +332,7 @@ function RouteView({ config, data }) {
           </Query>
         </div>
         <aside className="route-side">
-          <CommuteTracker config={config} route={route} onReplay={setReplay} />
+          <CommuteTracker config={config} route={route} routes={data.routes} onPickRoute={pickRoute} onReplay={setReplay} />
           <TripSummary route={route} config={config} />
           <Query q={wallet}>{(w) => <Wallet wallet={w} />}</Query>
           <Query q={trips}>{(t) => <Trips data={t} config={config} />}</Query>

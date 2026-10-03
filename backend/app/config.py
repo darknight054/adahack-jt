@@ -35,7 +35,7 @@ DEFAULT_FLOOR_PRICE_DECIPENCE = 10  # 1.0p a credit, the cash-out value, so nobo
 DEFAULT_HOUSE_PRICE_DECIPENCE = 40  # 4.0p a credit, Jane Street's own price
 
 # Ledger kinds. Earned credits are the only ones that can be sold; team score is net of parking.
-EARN_KINDS = ("walk", "cycle", "bus", "carshare", "tree", "team_bonus")
+EARN_KINDS = ("walk", "cycle", "bus", "carshare", "tree", "team_bonus", "switch")
 SCORE_KINDS = ("walk", "cycle", "bus", "carshare", "tree", "car_park")
 TIMEZONE = "Europe/London"
 
@@ -70,6 +70,16 @@ TRACK_SPEED_KMH = {"walk": (3, 8, 12), "cycle": (8, 28, 40)}  # min avg, max avg
 TRACK_STALE_AFTER_H = 3
 LIVE_HIDE_AFTER_S = 900  # teammates stop seeing a live position this long after its last fix
 NEAR_HOME_M = 2000  # teammates living this close are suggested as commute partners
+
+# Car-free offers (app/switch.py): drivers name the bonus they'd need to walk or cycle in instead, and Jane Street
+# funds the cheapest asks that fit a daily budget. Each is paid only after that commute is verified.
+SWITCH_BUDGET = 500  # credits a day
+SWITCH_ASK_MIN = 10
+SWITCH_ASK_MAX = 300
+SWITCH_RUN_HOUR = 20  # each day's auction runs at 20:00 the evening before
+SWITCH_USUAL_MODES = ("car",)  # who can make an offer
+
+EXCHANGE_REFRESH_S = 5  # how often the Exchange page polls for new trades, listings and offers
 
 # Demo replay (app/demo.py): on unless DEMO_REPLAY=0, and how long the frontend animates it.
 DEMO_REPLAY = os.environ.get("DEMO_REPLAY", "1") != "0"

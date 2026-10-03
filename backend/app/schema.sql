@@ -146,3 +146,17 @@ CREATE TABLE trades (
   created_at TEXT NOT NULL
 );
 CREATE INDEX trades_time ON trades(created_at);
+
+-- Car-free offers (app/switch.py): a driver asks for a bonus to walk or cycle in on `day` instead.
+CREATE TABLE switch_offers (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  day TEXT NOT NULL,             -- the commute day, YYYY-MM-DD in London
+  ask INTEGER NOT NULL,          -- credits asked for
+  status TEXT NOT NULL,          -- open, funded, waitlisted, paid, expired
+  trip_id INTEGER REFERENCES trips(id),
+  created_at TEXT NOT NULL,
+  decided_at TEXT,
+  UNIQUE (user_id, day)
+);
+CREATE INDEX switch_day ON switch_offers(day, status, ask);

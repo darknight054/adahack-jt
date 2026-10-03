@@ -57,7 +57,7 @@ export default function DemoReplay({ route, config, onStart, onStop }) {
         <p className={`note ${r.status === 'verified' ? '' : 'error'}`}>
           {r.status === 'verified'
             ? `Verified: ${r.credited_mi} mi, ${fmtSigned(r.credits)} credits. Your wallet, team score and the leaderboard have updated.`
-            : r.status === 'review' ? 'Sent for a person to check.' : 'Not credited.'}{' '}
+            : r.status === 'review' ? 'Sent for a person to check.' : 'Not credited.'}{r.switch_bonus > 0 && ` Your car-free offer paid ${fmtSigned(r.switch_bonus)} on top.`}{' '}
           {r.capped && `You’ve reached today’s cap of ${config.credits.daily_cap} credits.`} {r.reasons.join(' ')}
         </p>
       )}

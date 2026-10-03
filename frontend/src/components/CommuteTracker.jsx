@@ -71,11 +71,10 @@ function Tracking({ trip, finish }) {
   )
 }
 
-export default function CommuteTracker({ config, route, onReplay }) {
-  const defaultMode = route.mode
+/** The mode buttons switch to that mode's first route, so the map, trip summary and replay all follow. */
+export default function CommuteTracker({ config, route, routes, onPickRoute, onReplay }) {
   const active = useActiveTrip()
   const start = useStartTrip()
-  const [mode, setMode] = useState(defaultMode)
   const [geoError, setGeoError] = useState(null)
   const finish = useFinishTrip()
   const result = finish.data
@@ -84,7 +83,7 @@ export default function CommuteTracker({ config, route, onReplay }) {
     setGeoError(null)
     finish.reset()
     try {
-      start.mutate({ mode, fix: await here() })
+      start.mutate({ mode: route.mode, fix: await here() })
     } catch (err) {
       setGeoError(`Location is needed to track a commute: ${err.message}`)
     }
@@ -98,14 +97,18 @@ export default function CommuteTracker({ config, route, onReplay }) {
             <p className={`note ${result.status === 'verified' ? '' : 'error'}`}>
               {result.status === 'verified'
                 ? `Verified: ${result.credited_mi} mi, ${fmtSigned(result.credits)} credits.`
-                : result.status === 'review' ? 'Sent for a person to check.' : 'Not credited.'}{' '}
+                : result.status === 'review' ? 'Sent for a person to check.' : 'Not credited.'}{result.switch_bonus > 0 && ` Your car-free offer paid ${fmtSigned(result.switch_bonus)} on top.`}{' '}
               {result.reasons.join(' ')}
             </p>
           )}
           <div className="segmented" role="group" aria-label="Mode">
-            {Object.entries(config.modes).map(([id, m]) => (
-              <button key={id} type="button" aria-pressed={mode === id} onClick={() => setMode(id)}>{m.label}</button>
-            ))}
+            {Object.entries(config.modes).map(([id, m]) => {
+              const first = routes.find((r) => r.mode === id)
+              return (
+                <button key={id} type="button" aria-pressed={route.mode === id} disabled={!first}
+                  onClick={() => route.mode !== id && onPickRoute(first.id)}>{m.label}</button>
+              )
+            })}
           </div>
           {(geoError || start.error) && <p className="note error">{geoError ?? start.error.message}</p>}
           <button className="btn primary" onClick={begin} disabled={start.isPending}>

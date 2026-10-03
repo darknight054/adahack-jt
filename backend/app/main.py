@@ -9,7 +9,7 @@ from fastapi import Depends, FastAPI, File, Form, Header, Request, Response, Upl
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from . import auth, config, demo, economy, market, places, trips
+from . import auth, config, demo, economy, market, places, switch, trips
 from .db import get_conn, write
 from .economy import iso, now
 from .errors import Rejected
@@ -91,7 +91,8 @@ def get_config(conn: Conn):
             "pence_per_credit": config.PENCE_PER_CREDIT,
             "min_cashout_credits": config.MIN_CASHOUT_CREDITS,
         },
-        "market": {"floor_price_pence": market.pence(floor), "house_price_pence": market.pence(house)},
+        "market": {"floor_price_pence": market.pence(floor), "house_price_pence": market.pence(house),
+                   "refresh_s": config.EXCHANGE_REFRESH_S},
         "demo": {"replay_s": config.DEMO_REPLAY_S} if config.DEMO_REPLAY else None,
     }
 
@@ -182,7 +183,8 @@ def get_stops(route_id: int, _user: User, conn: Conn):
 def get_trips(user: User, conn: Conn):
     start = iso(economy.week_start(now()))
     rows = conn.execute(
-        "SELECT t.*, r.name AS route_name FROM trips t LEFT JOIN routes r ON r.id = t.route_id "
+        "SELECT t.*, r.name AS route_name, o.ask AS bonus FROM trips t LEFT JOIN routes r ON r.id = t.route_id "
+        "LEFT JOIN switch_offers o ON o.trip_id = t.id AND o.status = 'paid' "
         "WHERE t.user_id = ? AND t.status != 'active' ORDER BY t.started_at DESC LIMIT 12", (user["id"],)).fetchall()
     week = conn.execute(
         "SELECT COUNT(*) AS n, SUM(distance_km) AS km, SUM(car_distance_km) AS car_km FROM trips "
@@ -204,6 +206,7 @@ def get_trips(user: User, conn: Conn):
             "route_name": t["route_name"] or (config.MODES.get(t["mode"]) or config.FLAT_TRIPS[t["mode"]])["label"],
             "distance_mi": round(t["distance_km"] / config.KM_PER_MILE, 2) if t["distance_km"] else None,
             "credits": t["credits"],
+            "bonus": t["bonus"] or 0,  # a car-free offer paid on this commute
             "co2_kg_avoided": round(t["car_distance_km"] * config.CAR_KG_CO2E_PER_KM, 2) if active(t) else 0,
             "fuel_gbp_saved": round(t["car_distance_km"] / config.KM_PER_MILE * config.FUEL_GBP_PER_MILE, 2)
             if active(t) else 0,
@@ -270,6 +273,32 @@ def demo_replay(body: Replay, user: User, conn: Conn):
     if not config.DEMO_REPLAY:
         raise Rejected(404, "Demo replay is turned off on this server.")
     return demo.replay(conn, user["id"], body.route_id, now())
+
+
+@app.get("/api/switch")
+def switch_book(user: User, conn: Conn):
+    return switch.book(conn, user["id"], now())
+
+
+class Offer(BaseModel):
+    ask: int
+
+
+@app.post("/api/switch/offers", status_code=204)
+def switch_offer(body: Offer, user: User, conn: Conn):
+    switch.offer(conn, user["id"], body.ask, now())
+
+
+@app.delete("/api/switch/offers/{offer_id}", status_code=204)
+def switch_withdraw(offer_id: int, user: User, conn: Conn):
+    switch.withdraw(conn, user["id"], offer_id)
+
+
+@app.post("/api/demo/switch/run", status_code=204)
+def demo_switch_run(user: User, conn: Conn):
+    if not config.DEMO_REPLAY:
+        raise Rejected(404, "Demo controls are turned off on this server.")
+    switch.run_now(conn, now())
 
 
 @app.get("/api/office/code")

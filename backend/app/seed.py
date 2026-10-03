@@ -4,16 +4,19 @@ Routes come from OSRM and places from Overpass (real OpenStreetMap data). Users,
 generated, but every credit goes through the same rules the API uses (allowance, trip awards and caps, parking,
 team bonus, listings and trades), so all totals are computed rather than typed in.
 
-Run: uv run python -m app.seed   (takes a few minutes; it calls OSRM and Overpass)
+Run: uv run python -m app.seed   (seconds: reuses the routes, places and stops already in the DB)
+     uv run python -m app.seed --refetch   (a few minutes: calls OSRM and Overpass again)
 """
 import colorsys
 import json
 import random
 import secrets
+import shutil
+import sys
 import time
 from datetime import timedelta
 
-from . import auth, config, economy, market, places, routing
+from . import auth, config, economy, market, places, routing, switch
 from .db import BUNDLED, SCHEMA, connect
 from .economy import iso
 from .places import haversine_m
@@ -59,6 +62,7 @@ Walsh Gupta Ward Ibrahim Klein Byrne Sato Mendes Hart Nguyen Owusu Russo Hall Lu
 Fraser Kaur Lowe Yilmaz Quinn Abara""".split()
 CAR_PARKS = ["London Wall car park", "Minories car park", "Baynard House car park", "Smithfield car park"]
 DEMO_USER = ("Priya Shah", "Equities", "Bermondsey", "walk")
+DEMO_DRIVER = "Petra Shah"  # always a driver, with no car-free offers yet, to demo them
 # Every demo account signs in with its username (first.last) and this password.
 DEMO_PASSWORD = "streetmiles"
 WEEKS = 4
@@ -181,13 +185,15 @@ def build_people(conn) -> None:
                 pass
             names.add(name)
             a = rng.choice(areas)
-            roll = rng.random()
-            mode = "car" if roll < 0.15 else "bus" if roll < 0.25 else (
+            roll = rng.random()  # the brief: most Jane Street staff drive in
+            mode = "car" if roll < 0.55 else "bus" if roll < 0.65 else (
                 "walk" if a["walk_km"] <= WALK_MAX_KM else "cycle")
+            if name == DEMO_DRIVER:
+                mode = "car"
             insert(name, team_ids[team], a["id"], mode)
 
 
-def _record_trip(conn, user, mode: str, route, at, car_km: float) -> None:
+def _record_trip(conn, user, mode: str, route, at, car_km: float) -> int:
     distance = route["distance_km"] if route else None
     credits = economy.trip_award(conn, user["id"], mode, distance, at)
     started = at - timedelta(minutes=route["duration_min"] if route else 40)
@@ -203,9 +209,10 @@ def _record_trip(conn, user, mode: str, route, at, car_km: float) -> None:
     else:
         detail = f"Came in by {config.FLAT_TRIPS[mode]['label'].lower()}"
     economy.add(conn, user["id"], mode, credits, detail, at, f"trip:{trip_id}")
+    return trip_id
 
 
-def _commute(conn, user, persona, routes_by_area, areas, parks_by_area, at, now) -> None:
+def _commute(conn, user, persona, routes_by_area, areas, parks_by_area, at, now, funded: bool) -> None:
     area = areas[user["area_id"]]
     usual = user["usual_mode"]
     active_mode = usual if usual in config.MODES else (
@@ -213,13 +220,15 @@ def _commute(conn, user, persona, routes_by_area, areas, parks_by_area, at, now)
     p = {"walk": (0.72, 0.08, 0.03, 0.05), "cycle": (0.72, 0.08, 0.03, 0.05),
          "bus": (0.25, 0.55, 0.0, 0.08), "car": (0.2, 0.05, 0.15, 0.5)}[usual]
     p_active = min(0.95, p[0] * persona)
+    if funded:  # they asked to be paid to leave the car at home, and most then do
+        p, p_active = (0, 0, 0, 0), 0.9
     roll = rng.random()
     if roll < p[3]:
         economy.add(conn, user["id"], "car_park", -config.CAR_PARK_PENALTY, f"Parked at {rng.choice(CAR_PARKS)}", at)
     elif roll < p[3] + p_active:
         options = routes_by_area[(area["id"], active_mode)]
         route = options[0] if len(options) == 1 or rng.random() < 0.7 else rng.choice(options[1:])
-        _record_trip(conn, user, active_mode, route, at, area["car_distance_km"])
+        switch.settle(conn, user["id"], _record_trip(conn, user, active_mode, route, at, area["car_distance_km"]), at)
         home_at = at.replace(hour=17) + timedelta(minutes=rng.randint(30, 120))
         if rng.random() < 0.45 and home_at < now:
             _record_trip(conn, user, active_mode, route, home_at, area["car_distance_km"])
@@ -283,6 +292,21 @@ def _market_day(conn, users, day, progress: float, now) -> None:
             conn.execute("UPDATE listings SET status = 'cancelled' WHERE id = ?", (lid,))
 
 
+def _offers(conn, users, day: str, now, share: float) -> set[int]:
+    """Some drivers make car-free offers for `day`. Returns who was funded, if its auction has run."""
+    run_at = switch.runs_at(day)
+    for u in users:
+        if u["usual_mode"] in config.SWITCH_USUAL_MODES and u["name"] != DEMO_DRIVER and rng.random() < share:
+            made = min(run_at, now) - timedelta(minutes=rng.randint(20, 1400))
+            if made < now:
+                conn.execute("INSERT INTO switch_offers (user_id, day, ask, status, created_at) VALUES (?,?,?, 'open', ?)",
+                             (u["id"], day, rng.randint(4, 30) * 5, iso(made)))
+    if run_at > now:
+        return set()
+    switch.run(conn, day, run_at)
+    return {r[0] for r in conn.execute("SELECT user_id FROM switch_offers WHERE day = ? AND status = 'funded'", (day,))}
+
+
 def simulate(conn) -> None:
     now = economy.now()
     users = conn.execute("SELECT * FROM users").fetchall()
@@ -305,14 +329,20 @@ def simulate(conn) -> None:
         for d in range(7):
             day = economy.day_start(ws + timedelta(days=d, hours=12))
             if d < 5:
+                recent = now - timedelta(days=14) < day < now
+                funded = _offers(conn, users, day.date().isoformat(), now, 0.15) if recent else set()
                 for u in users:
                     at = day.replace(hour=8) + timedelta(minutes=rng.randint(-45, 75))
                     if at < now:
-                        _commute(conn, u, persona[u["id"]], routes_by_area, areas, parks_by_area, at, now)
+                        _commute(conn, u, persona[u["id"]], routes_by_area, areas, parks_by_area, at, now,
+                                u["id"] in funded)
             if day > now - timedelta(days=10) and day < now:
                 _market_day(conn, users, day, (day - (now - timedelta(days=10))) / timedelta(days=10), now)
         if economy.week_start(ws + timedelta(days=8)) <= now:
             economy.settle_week(conn, ws)
+
+    _offers(conn, users, switch.open_day(now), now, 0.12)
+    switch.tidy(conn, now)
 
     me = conn.execute("SELECT id FROM users WHERE name = ?", (DEMO_USER[0],)).fetchone()["id"]
     floor, house = market.prices(conn)
@@ -320,8 +350,24 @@ def simulate(conn) -> None:
         market.create_listing(conn, me, n, 28, 20, now - timedelta(hours=15))
 
 
+# Map data from OSRM and Overpass. It rarely changes, so a reseed copies it from the previous DB.
+MAP_TABLES = ("areas", "routes", "places", "route_stops")
+
+
+def _has_map(path) -> bool:
+    try:
+        c = connect(path)
+        return all(c.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in MAP_TABLES)
+    except Exception:
+        return False
+
+
 def main() -> None:
     BUNDLED.parent.mkdir(exist_ok=True)
+    previous = BUNDLED.with_suffix(".previous.db")
+    reuse = "--refetch" not in sys.argv and BUNDLED.exists() and _has_map(BUNDLED)
+    if reuse:
+        shutil.copy(BUNDLED, previous)
     BUNDLED.unlink(missing_ok=True)
     conn = connect(BUNDLED)
     conn.executescript(SCHEMA.read_text())
@@ -333,12 +379,21 @@ def main() -> None:
         ("staff_key", secrets.token_urlsafe(12)),
         ("session_secret", secrets.token_hex(32)),
     ])
-    print("Routes (OSRM)…")
-    build_routes(conn)
-    print("Places (Overpass)…")
-    found = build_places(conn)
-    print("Stops along routes…")
-    build_stops(conn, found)
+    if reuse:
+        print("Routes, places and stops from the previous DB (--refetch calls OSRM and Overpass again)…")
+        conn.execute("ATTACH ? AS previous", (str(previous),))
+        for t in MAP_TABLES:
+            conn.execute(f"INSERT INTO {t} SELECT * FROM previous.{t}")
+        conn.commit()
+        conn.execute("DETACH previous")
+        previous.unlink()
+    else:
+        print("Routes (OSRM)…")
+        build_routes(conn)
+        print("Places (Overpass)…")
+        found = build_places(conn)
+        print("Stops along routes…")
+        build_stops(conn, found)
     print("People and four weeks of history…")
     build_people(conn)
     simulate(conn)

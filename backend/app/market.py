@@ -45,11 +45,22 @@ def _open_for(conn: sqlite3.Connection, buyer_id: int) -> list[dict]:
     return sorted(out, key=lambda r: (r["price_dp"], r["created_at"]))
 
 
+def _same_offer(rows: list[dict], lead: dict) -> list[dict]:
+    """A seller's open listings at the same price for this buyer, oldest first. The book shows them as one row."""
+    return [r for r in rows if r["seller_id"] == lead["seller_id"] and r["price_dp"] == lead["price_dp"]]
+
+
 def listings(conn: sqlite3.Connection, buyer_id: int) -> list[dict]:
-    """The order book as this buyer sees it, plus their own open listings (at the global price) marked `mine`."""
+    """The order book as this buyer sees it, plus their own open listings (at the global price) marked `mine`.
+    A seller's listings at the same price are one row, identified by the oldest listing."""
+    open_rows = _open_for(conn, buyer_id)
+    rows, seen = [], set()
+    for r in open_rows:
+        if (r["seller_id"], r["price_dp"]) not in seen:
+            seen.add((r["seller_id"], r["price_dp"]))
+            rows.append({**r, "qty_remaining": sum(x["qty_remaining"] for x in _same_offer(open_rows, r))})
     own = conn.execute("SELECT * FROM listings WHERE seller_id = ? AND status = 'open'", (buyer_id,)).fetchall()
-    rows = _open_for(conn, buyer_id) + [{**dict(r), "teammate": False, "mine": True, "price_dp": r["global_price_dp"]}
-                                       for r in own]
+    rows += [{**dict(r), "teammate": False, "mine": True, "price_dp": r["global_price_dp"]} for r in own]
     rows.sort(key=lambda r: (r["price_dp"], r["created_at"]))
     return [
         {"id": r["id"], "seller": person(conn, r["seller_id"]), "teammate": r["teammate"], "mine": r.get("mine", False),
@@ -145,16 +156,24 @@ def buy(conn: sqlite3.Connection, user_id: int, listing_id: int | str, qty: int,
         else:
             if conn.execute("SELECT 1 FROM listings WHERE id = ? AND seller_id = ?", (listing_id, user_id)).fetchone():
                 raise Rejected(422, "That's your own listing. Cancel it under My listings instead.")
-            row = next((r for r in _open_for(conn, user_id) if r["id"] == listing_id), None)
-            if row is None or row["qty_remaining"] < qty or row["price_dp"] != price_dp:
+            open_rows = _open_for(conn, user_id)
+            row = next((r for r in open_rows if r["id"] == listing_id), None)
+            group = _same_offer(open_rows, row) if row else []
+            if row is None or sum(r["qty_remaining"] for r in group) < qty or row["price_dp"] != price_dp:
                 raise Rejected(409, "That listing changed before your order reached it.")
             seller_id = row["seller_id"]
             if economy.balance(conn, seller_id) < qty:
                 conn.execute("UPDATE listings SET status = 'cancelled' WHERE id = ?", (listing_id,))
                 raise Rejected(409, "The seller no longer has those credits.")
-            left = row["qty_remaining"] - qty
-            conn.execute("UPDATE listings SET qty_remaining = ?, status = ? WHERE id = ?",
-                         (left, "open" if left else "filled", listing_id))
+            need = qty
+            for r in group:  # fill the seller's listings at this price, oldest first
+                take = min(need, r["qty_remaining"])
+                left = r["qty_remaining"] - take
+                conn.execute("UPDATE listings SET qty_remaining = ?, status = ? WHERE id = ?",
+                             (left, "open" if left else "filled", r["id"]))
+                need -= take
+                if not need:
+                    break
         cur = conn.execute(
             "INSERT INTO trades (listing_id, buyer_id, seller_id, qty, price_dp, created_at) VALUES (?,?,?,?,?,?)",
             (None if seller_id is None else listing_id, user_id, seller_id, qty, price_dp, iso(at)),
