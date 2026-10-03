@@ -79,6 +79,8 @@ SWITCH_ASK_MAX = 300
 SWITCH_RUN_HOUR = 20  # each day's auction runs at 20:00 the evening before
 SWITCH_USUAL_MODES = ("car",)  # who can make an offer
 
+EXCHANGE_REFRESH_S = 5  # how often the Exchange page polls for new trades, listings and offers
+
 # Demo replay (app/demo.py): on unless DEMO_REPLAY=0, and how long the frontend animates it.
 DEMO_REPLAY = os.environ.get("DEMO_REPLAY", "1") != "0"
 DEMO_REPLAY_S = 10

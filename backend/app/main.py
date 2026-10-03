@@ -91,7 +91,8 @@ def get_config(conn: Conn):
             "pence_per_credit": config.PENCE_PER_CREDIT,
             "min_cashout_credits": config.MIN_CASHOUT_CREDITS,
         },
-        "market": {"floor_price_pence": market.pence(floor), "house_price_pence": market.pence(house)},
+        "market": {"floor_price_pence": market.pence(floor), "house_price_pence": market.pence(house),
+                   "refresh_s": config.EXCHANGE_REFRESH_S},
         "demo": {"replay_s": config.DEMO_REPLAY_S} if config.DEMO_REPLAY else None,
     }
 

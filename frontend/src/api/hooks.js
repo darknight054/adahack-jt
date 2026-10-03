@@ -21,7 +21,13 @@ export function useLogout() {
   const client = useQueryClient()
   return useMutation({ mutationFn: () => api.post('/api/auth/logout'), onSuccess: () => client.clear() })
 }
-export const useWallet = () => useQuery({ queryKey: ['wallet'], queryFn: get('/api/wallet') })
+export const useWallet = (opts) => useQuery({ queryKey: ['wallet'], queryFn: get('/api/wallet'), ...opts })
+
+/** Query options for the Exchange page, which polls so colleagues' trades, listings and offers appear by themselves. */
+export function useExchangePolling() {
+  const s = useConfig().data?.market.refresh_s
+  return { refetchInterval: s ? s * 1000 : false }
+}
 export const useWeekStats = () => useQuery({ queryKey: ['stats', 'week'], queryFn: get('/api/stats/week') })
 export const useNetwork = () => useQuery({ queryKey: ['network'], queryFn: get('/api/network'), staleTime: Infinity })
 
@@ -52,10 +58,13 @@ export const useLeaderboard = (q = '') => useQuery({
   placeholderData: keepPreviousData,
 })
 
-export const useMarket = () => useQuery({ queryKey: ['market', 'summary'], queryFn: get('/api/market') })
-export const useListings = () => useQuery({ queryKey: ['market', 'listings'], queryFn: get('/api/market/listings') })
-export const useMyListings = () => useQuery({ queryKey: ['market', 'mine'], queryFn: get('/api/market/listings/mine') })
-export const useMyTrades = () => useQuery({ queryKey: ['market', 'trades'], queryFn: get('/api/market/trades') })
+export const useMarket = (opts) => useQuery({ queryKey: ['market', 'summary'], queryFn: get('/api/market'), ...opts })
+export const useListings = (opts) =>
+  useQuery({ queryKey: ['market', 'listings'], queryFn: get('/api/market/listings'), ...opts })
+export const useMyListings = (opts) =>
+  useQuery({ queryKey: ['market', 'mine'], queryFn: get('/api/market/listings/mine'), ...opts })
+export const useMyTrades = (opts) =>
+  useQuery({ queryKey: ['market', 'trades'], queryFn: get('/api/market/trades'), ...opts })
 
 function useWalletMutation(mutationFn) {
   const client = useQueryClient()
@@ -73,7 +82,7 @@ export const useCreateListing = () => useWalletMutation((listing) => api.post('/
 export const useCancelListing = () => useWalletMutation((id) => api.delete(`/api/market/listings/${id}`))
 export const useConvert = () => useWalletMutation((req) => api.post('/api/wallet/convert', req))
 
-export const useSwitch = () => useQuery({ queryKey: ['switch'], queryFn: get('/api/switch') })
+export const useSwitch = (opts) => useQuery({ queryKey: ['switch'], queryFn: get('/api/switch'), ...opts })
 
 function useSwitchMutation(mutationFn) {
   const client = useQueryClient()

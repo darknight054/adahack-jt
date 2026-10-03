@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   useBuy, useCancelListing, useConfig, useConvert, useCreateListing, useListings, useMarket, useMyListings,
-  useMyTrades, useRoutes, useSwitch, useWallet,
+  useExchangePolling, useMyTrades, useRoutes, useSwitch, useWallet,
 } from '../api/hooks'
 import Avatar from '../components/Avatar'
 import CarFreeOffers from '../components/CarFreeOffers'
@@ -313,7 +313,7 @@ function Ticket({ tab, setTab, listing, market, wallet, config }) {
 }
 
 function MyListings() {
-  const mine = useMyListings()
+  const mine = useMyListings(useExchangePolling())
   const cancel = useCancelListing()
   return (
     <section className="panel" aria-labelledby="mine-title">
@@ -339,7 +339,7 @@ function MyListings() {
 }
 
 function MyTrades() {
-  const trades = useMyTrades()
+  const trades = useMyTrades(useExchangePolling())
   return (
     <section className="panel" aria-labelledby="trades-title">
       <div className="panel-head"><h2 id="trades-title">My trades</h2></div>
@@ -436,10 +436,11 @@ function Market({ config, market, listings, wallet, route, offers }) {
 
 export default function Exchange() {
   const config = useConfig()
-  const market = useMarket()
-  const listings = useListings()
-  const offers = useSwitch()
-  const wallet = useWallet()
+  const poll = useExchangePolling()
+  const market = useMarket(poll)
+  const listings = useListings(poll)
+  const offers = useSwitch(poll)
+  const wallet = useWallet(poll)
   const routes = useRoutes()
   const walk = routes.data?.routes.find((r) => r.mode === 'walk')
   return (

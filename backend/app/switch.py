@@ -112,8 +112,16 @@ def run_now(conn: sqlite3.Connection, at: datetime) -> None:
         run(conn, open_day(at), at)
 
 
+def _due(conn: sqlite3.Connection, at: datetime) -> bool:
+    """Whether tidy() has anything to do, so polling reads don't take the write lock."""
+    open_days = conn.execute("SELECT DISTINCT day FROM switch_offers WHERE status = 'open'").fetchall()
+    return any(runs_at(d) <= at for (d,) in open_days) or bool(conn.execute(
+        "SELECT 1 FROM switch_offers WHERE status = 'funded' AND day < ? LIMIT 1",
+        (economy.day_start(at).date().isoformat(),)).fetchone())
+
+
 def book(conn: sqlite3.Connection, user_id: int, at: datetime) -> dict:
-    if conn.execute("SELECT 1 FROM switch_offers WHERE status = 'open' OR status = 'funded' LIMIT 1").fetchone():
+    if _due(conn, at):
         with write(conn):
             tidy(conn, at)
     day = open_day(at)
